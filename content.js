@@ -1,5 +1,8 @@
 let refreshTimeout;
 
+const observer = new MutationObserver(onDOMChange);
+observer.observe(document, { childList: true, subtree: true });
+
 chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
   if (request.action === "start") {
     clearTimeout(refreshTimeout);
@@ -9,11 +12,21 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
   } else if (request.action === "stop") {
     clearTimeout(refreshTimeout);
   }
+  if (request.action === "stopMonitoring") {
+    observer.disconnect();
+  }
 });
 
 function onDOMChange(mutations) {
-  chrome.runtime.sendMessage({ action: "domChanged" });
+  chrome.storage.sync.get("monitorChangesEnabled", (data) => {
+    if (chrome.runtime.lastError) {
+      console.log("Some Error: Extension context invalidated.");
+    } else {
+      if (data.monitorChangesEnabled) {
+        chrome.runtime.sendMessage({ action: "domChanged" });
+      }
+    }
+  });
 }
 
-const observer = new MutationObserver(onDOMChange);
-observer.observe(document, { childList: true, subtree: true });
+

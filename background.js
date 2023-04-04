@@ -33,8 +33,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     clearTimeout(refreshIntervals[tabId]);
   } else if (request.action === "getStatus") {
     sendResponse({ isRunning: isRunning[tabId], interval: currentInterval });
-  }
-  if (request.action === "domChanged") {
+  } else if (request.action === "domChanged") {
     playNotificationSound();
     showNotificationDotOnTab(sender.tab.id);
   }

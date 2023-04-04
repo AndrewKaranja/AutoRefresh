@@ -41,8 +41,45 @@
         font-size: 14px;
         padding: 5px;
         width: 100%;
-        margin-bottom: 15px;
+        margin-bottom: 10px;
       }
+
+      .monitor-changes-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-evenly;
+    margin-top: 10px;
+    margin-bottom: 10px;
+  }
+
+  .monitor-changes-checkbox {
+    margin: 0;
+    width: 20px;
+    height: 20px;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    outline: none;
+    border: 1px solid #ff813f;
+    border-radius: 3px;
+    background-color: transparent;
+    cursor: pointer;
+  }
+
+  .monitor-changes-checkbox:checked {
+    background-color: #ff813f;
+  }
+
+ 
+
+
+  .monitor-changes-label {
+    margin: 0;
+    font-size: 14px;
+    font-weight: bold;
+    color: #333;
+    cursor: pointer;
+  }
       .buy-me-a-coffee {
     margin-top: 10px;
     text-align: center;
@@ -56,6 +93,12 @@
 
   .buy-me-a-coffee a:hover {
     text-decoration: underline;
+  }
+
+  .warning-message {
+    color: #ff813f;
+    font-size: 12px;
+    margin-top: 5px;
   }
 
       button {
@@ -82,11 +125,17 @@
     <img src="icon.png" alt="Auto Refresh Logo" width="64" height="64" />
     <h1>Auto Refresh</h1>
     <label for="interval">Refresh interval (in seconds):</label>
-    <input type="number" id="interval" min="1" step="1" value="30">
+    <input type="number" id="refreshInterval" min="5" step="1" value="30">
+    <div id="warningMessage" class="warning-message" hidden>
+      Warning: Setting a refresh interval shorter than 30 seconds may result in increased server load and the possibility of being blocked by websites.
+    </div>
+    <div class="monitor-changes-container">
+      <input type="checkbox" id="monitorChanges" class="monitor-changes-checkbox" />
+      <label for="monitorChanges" class="monitor-changes-label">Monitor page for changes</label>
+    </div>
     <button id="start">Start</button>
     <button id="stop" >Stop</button>
-    <label for="monitorChanges">Monitor page for changes:</label>
-<input type="checkbox" id="monitorChanges" />
+    
 <div class="buy-me-a-coffee">
   <a href="https://www.buymeacoffee.com/andrewkaranja" target="_blank" rel="noopener noreferrer">
     Buy me a coffee

@@ -2,9 +2,23 @@ function updateUI(isRunning) {
     startButton.disabled = isRunning;
     stopButton.disabled = !isRunning;
   }
+
+  function showWarningMessageIfNeeded() {
+    const refreshInterval = document.getElementById("refreshInterval");
+    const warningMessage = document.getElementById("warningMessage");
   
-  document.addEventListener("DOMContentLoaded", function () {
-    const intervalInput = document.getElementById("interval");
+    if (parseInt(refreshInterval.value) < 30) {
+      warningMessage.hidden = false;
+    } else {
+      warningMessage.hidden = true;
+    }
+  }
+  
+  // document.addEventListener("DOMContentLoaded", function () {
+  
+  // });
+  window.addEventListener("DOMContentLoaded", () => {
+    const intervalInput = document.getElementById("refreshInterval");
     const startButton = document.getElementById("start");
     const stopButton = document.getElementById("stop");
 
@@ -32,10 +46,14 @@ function updateUI(isRunning) {
         updateUI(false);
       });
     });
-  });
-  window.addEventListener("DOMContentLoaded", () => {
+
+
     // Clear the notification dot
     chrome.action.setBadgeText({ text: "" });
+     // Refresh interval input
+  const refreshInterval = document.getElementById("refreshInterval");
+  refreshInterval.addEventListener("input", showWarningMessageIfNeeded);
+  restoreRefreshInterval();
   
   });
   
