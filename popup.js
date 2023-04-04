@@ -7,6 +7,8 @@ function updateUI(isRunning) {
     const intervalInput = document.getElementById("interval");
     const startButton = document.getElementById("start");
     const stopButton = document.getElementById("stop");
+
+    chrome.action.setBadgeText({ text: "" });
   
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       const tabId = tabs[0].id;
@@ -30,6 +32,12 @@ function updateUI(isRunning) {
         updateUI(false);
       });
     });
+  });
+  window.addEventListener("DOMContentLoaded", () => {
+    // Clear the notification dot
+    chrome.action.setBadgeText({ text: "" });
+  
+    // ...
   });
   
   

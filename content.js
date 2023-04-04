@@ -10,3 +10,10 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
     clearTimeout(refreshTimeout);
   }
 });
+
+function onDOMChange(mutations) {
+  chrome.runtime.sendMessage({ action: "domChanged" });
+}
+
+const observer = new MutationObserver(onDOMChange);
+observer.observe(document, { childList: true, subtree: true });

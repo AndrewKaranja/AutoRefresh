@@ -2,24 +2,34 @@
   "manifest_version": 3,
   "name": "Auto Refresh",
   "version": "1.0",
-  "description": "Automatically refreshes the current page after a specified period of time.",
-  "browser_action": {
-    "default_icon": "icon.png",
-    "default_popup": "popup.html"
-  },
+  "description": "Automatically refreshes the page after a specified interval.",
   "permissions": [
     "tabs",
     "activeTab",
-    "storage"
+    "storage",
+    "webNavigation",
+    "notifications"
   ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon.png",
+      "48": "icon.png",
+      "128": "icon.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
   "content_scripts": [
     {
-      "matches": ["*://*/*"],
+      "matches": ["<all_urls>"],
       "js": ["content.js"]
     }
   ],
-  "background": {
-    "service_worker": "background.js",
-    "type": "module"
+  "icons": {
+    "16": "icon.png",
+    "48": "icon.png",
+    "128": "icon.png"
   }
 }

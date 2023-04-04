@@ -8,6 +8,10 @@
         margin: 0;
         padding: 0;
       }
+      img {
+        display: block;
+        margin: 0 auto;
+      }
 
       body {
         font-family: Arial, sans-serif;
@@ -20,6 +24,7 @@
         font-weight: bold;
         margin-bottom: 15px;
         text-align: center;
+        margin-top: 1rem;
       }
 
       label {
@@ -28,6 +33,7 @@
         font-weight: bold;
         margin-bottom: 5px;
       }
+      
 
       input {
         border: 1px solid #ccc;
@@ -37,6 +43,20 @@
         width: 100%;
         margin-bottom: 15px;
       }
+      .buy-me-a-coffee {
+    margin-top: 10px;
+    text-align: center;
+  }
+
+  .buy-me-a-coffee a {
+    color: #ff813f;
+    text-decoration: none;
+    font-weight: bold;
+  }
+
+  .buy-me-a-coffee a:hover {
+    text-decoration: underline;
+  }
 
       button {
         background-color: #007bff;
@@ -57,12 +77,23 @@
       }
     </style>
   </head>
+  
   <body>
+    <img src="icon.png" alt="Auto Refresh Logo" width="64" height="64" />
     <h1>Auto Refresh</h1>
     <label for="interval">Refresh interval (in seconds):</label>
     <input type="number" id="interval" min="1" step="1" value="30">
     <button id="start">Start</button>
     <button id="stop" >Stop</button>
+    <label for="monitorChanges">Monitor page for changes:</label>
+<input type="checkbox" id="monitorChanges" />
+<div class="buy-me-a-coffee">
+  <a href="https://www.buymeacoffee.com/andrewkaranja" target="_blank" rel="noopener noreferrer">
+    Buy me a coffee
+  </a>
+</div>
     <script src="popup.js"></script>
   </body>
 </html>
+
+
