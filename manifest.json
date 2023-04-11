@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Auto Refresh",
-  "version": "1.0",
+  "version": "1.0.2",
   "description": "Automatically refreshes the page after a specified interval.",
   "permissions": [
     "tabs",
