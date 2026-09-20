@@ -1,0 +1,78 @@
+/*
+ * Element picker chrome.
+ *
+ * Injected with scripting.insertCSS, so it lands in the page's own stylesheet
+ * set and competes with the site's CSS. Everything is therefore !important and
+ * namespaced, and the z-index is at the top of the 32-bit range because some
+ * sites genuinely use z-index: 99999999 on their own overlays.
+ */
+
+.arf-picker-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2147483646 !important;
+  cursor: crosshair !important;
+  background: transparent !important;
+  pointer-events: auto !important;
+}
+
+.arf-picker-highlight {
+  position: fixed !important;
+  z-index: 2147483645 !important;
+  pointer-events: none !important;
+  border: 2px solid #0ea5c4 !important;
+  background: rgba(14, 165, 196, 0.14) !important;
+  border-radius: 3px !important;
+  transition: all 60ms ease-out !important;
+  box-sizing: border-box !important;
+}
+
+.arf-picker-label {
+  position: fixed !important;
+  z-index: 2147483647 !important;
+  pointer-events: none !important;
+  max-width: min(460px, 90vw) !important;
+  padding: 6px 9px !important;
+  border-radius: 6px !important;
+  background: #0f172a !important;
+  color: #f8fafc !important;
+  font: 500 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35) !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.arf-picker-label b {
+  color: #7dd3fc !important;
+  font-weight: 600 !important;
+}
+
+.arf-picker-label .arf-weak {
+  color: #fbbf24 !important;
+}
+
+.arf-picker-hint {
+  position: fixed !important;
+  left: 50% !important;
+  bottom: 24px !important;
+  transform: translateX(-50%) !important;
+  z-index: 2147483647 !important;
+  pointer-events: none !important;
+  padding: 9px 16px !important;
+  border-radius: 999px !important;
+  background: #0f172a !important;
+  color: #f8fafc !important;
+  font: 500 13px/1 system-ui, -apple-system, Segoe UI, sans-serif !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35) !important;
+}
+
+.arf-picker-hint kbd {
+  display: inline-block !important;
+  padding: 2px 6px !important;
+  margin: 0 2px !important;
+  border-radius: 4px !important;
+  background: #334155 !important;
+  font: inherit !important;
+  font-size: 11px !important;
+}

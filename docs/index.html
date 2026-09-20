@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Auto Refresh — Chrome extension</title>
+    <meta
+      name="description"
+      content="Auto-reload any Chrome tab on your schedule, with hard refresh, random intervals, scroll memory and free page-change alerts. No data collection."
+    />
+    <style>
+      :root {
+        --bg: #ffffff;
+        --bg-sunken: #f5f7fa;
+        --border: #e2e8f0;
+        --text: #0f172a;
+        --text-dim: #475569;
+        --accent: #0b8ca6;
+        --on-accent: #ffffff;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0f172a;
+          --bg-sunken: #1e293b;
+          --border: #334155;
+          --text: #f1f5f9;
+          --text-dim: #94a3b8;
+          --accent: #22d3ee;
+          --on-accent: #0f172a;
+        }
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        max-width: 68ch;
+        margin: 0 auto;
+        padding: 56px 20px 80px;
+        background: var(--bg);
+        color: var(--text);
+        font: 400 16px/1.65 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      h1 { font-size: 30px; letter-spacing: -0.025em; margin-bottom: 8px; }
+      h2 { font-size: 19px; margin: 34px 0 12px; letter-spacing: -0.01em; }
+      p, li { color: var(--text-dim); margin-bottom: 12px; }
+      ul { margin-left: 20px; }
+      li { margin-bottom: 7px; }
+      a { color: var(--accent); }
+      .tagline { font-size: 18px; margin-bottom: 26px; }
+      .cta {
+        display: inline-block;
+        padding: 11px 20px;
+        border-radius: 8px;
+        background: var(--accent);
+        color: var(--on-accent);
+        font-weight: 600;
+        text-decoration: none;
+        margin-bottom: 8px;
+      }
+      .scroll { overflow-x: auto; }
+      table { width: 100%; border-collapse: collapse; font-size: 15px; }
+      th, td {
+        padding: 9px 12px;
+        border-bottom: 1px solid var(--border);
+        text-align: left;
+        vertical-align: top;
+        color: var(--text-dim);
+      }
+      th { color: var(--text); font-weight: 600; white-space: nowrap; }
+      .note {
+        padding: 14px 16px;
+        border-left: 3px solid var(--accent);
+        border-radius: 0 8px 8px 0;
+        background: var(--bg-sunken);
+        margin-bottom: 14px;
+      }
+      .note p:last-child { margin-bottom: 0; }
+      footer {
+        margin-top: 44px;
+        padding-top: 18px;
+        border-top: 1px solid var(--border);
+        font-size: 14px;
+        color: var(--text-dim);
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Auto Refresh</h1>
+    <p class="tagline">
+      Reload any Chrome tab on your schedule — and find out when the page actually changed.
+    </p>
+
+    <p><a class="cta" href="https://github.com/AndrewKaranja/AutoRefresh">View on GitHub</a></p>
+
+    <h2>What it does</h2>
+    <div class="scroll">
+      <table>
+        <tbody>
+          <tr><th>Interval presets + custom</th><td>5 seconds to 24 hours, one tap</td></tr>
+          <tr><th>Random intervals</th><td>Vary each reload, so the pattern looks less automated</td></tr>
+          <tr><th>Hard reload</th><td>True cache bypass</td></tr>
+          <tr><th>Scroll memory</th><td>Returns you to where you were</td></tr>
+          <tr><th>Page-change alerts</th><td>Pick a region, get a notification and a sound when it changes — free</td></tr>
+          <tr><th>Ignore-regex</th><td>Hide clocks and rotating ads so they don't count as changes</td></tr>
+          <tr><th>Site rules</th><td>"Always refresh this site", surviving a browser restart</td></tr>
+          <tr><th>Smart scoping</th><td>Navigating away pauses — it never starts hammering the new page</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>Installs with no permission warnings</h2>
+    <div class="note">
+      <p>
+        Reloading a tab does not require permission to read it, so a basic refresh needs no site
+        access at all. Auto Refresh asks for a single site only when you switch on something that
+        genuinely has to read the page — sub-30-second intervals, scroll memory, or change
+        monitoring — and it asks at the moment you click Start on that site.
+      </p>
+    </div>
+
+    <h2>Privacy</h2>
+    <p>
+      No data is collected, transmitted or sold. No analytics, no telemetry, no remote code, no
+      server. Read the full
+      <a href="privacy.html">privacy policy</a>.
+    </p>
+
+    <footer>
+      Free and open source under the MIT licence ·
+      <a href="https://github.com/AndrewKaranja/AutoRefresh">Source</a> ·
+      <a href="privacy.html">Privacy</a> ·
+      <a href="https://www.buymeacoffee.com/andrewkaranja">Buy me a coffee</a>
+    </footer>
+  </body>
+</html>

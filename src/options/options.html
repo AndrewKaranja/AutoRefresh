@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Auto Refresh — Settings</title>
+    <script src="../lib/theme.js"></script>
+    <link rel="stylesheet" href="../lib/tokens.css" />
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <header class="head">
+      <img src="../assets/icons/icon-48.png" alt="" />
+      <h1>Auto Refresh</h1>
+      <span id="version" class="version"></span>
+    </header>
+
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" data-panel="jobs" aria-selected="true" data-i18n="optJobs">
+        Active
+      </button>
+      <button class="tab" role="tab" data-panel="rules" aria-selected="false" data-i18n="optRules">
+        Site rules
+      </button>
+      <button class="tab" role="tab" data-panel="settings" aria-selected="false" data-i18n="optSettings">
+        Settings
+      </button>
+      <button class="tab" role="tab" data-panel="about" aria-selected="false" data-i18n="optAbout">
+        About
+      </button>
+    </div>
+
+    <!-- ---------------------------------------------------------------- -->
+    <section id="panel-jobs" class="panel" role="tabpanel">
+      <div class="stats">
+        <div class="stat"><div id="statReloads" class="n">0</div><div class="l" data-i18n="statsReloads">reloads</div></div>
+        <div class="stat"><div id="statChanges" class="n">0</div><div class="l" data-i18n="statsChanges">changes detected</div></div>
+      </div>
+      <div id="jobList"></div>
+    </section>
+
+    <!-- ---------------------------------------------------------------- -->
+    <section id="panel-rules" class="panel" role="tabpanel" hidden>
+      <div class="toolbar">
+        <p class="sub" style="flex: 1">
+          Rules restart a job automatically when you open a matching page — including after a
+          browser restart.
+        </p>
+        <button id="addRule" class="btn btn-primary" data-i18n="optAddRule">Add rule</button>
+      </div>
+      <div id="ruleList"></div>
+    </section>
+
+    <!-- ---------------------------------------------------------------- -->
+    <section id="panel-settings" class="panel" role="tabpanel" hidden>
+      <div class="card">
+        <div class="setting">
+          <div class="grow">
+            <label class="title" for="theme" data-i18n="optTheme">Theme</label>
+          </div>
+          <select id="theme">
+            <option value="auto" data-i18n="optThemeAuto">Match system</option>
+            <option value="light" data-i18n="optThemeLight">Light</option>
+            <option value="dark" data-i18n="optThemeDark">Dark</option>
+          </select>
+        </div>
+
+        <div class="setting">
+          <div class="grow">
+            <label class="title" for="defaultInterval">Default interval</label>
+            <div class="hint">Used by the keyboard shortcut and by new jobs.</div>
+          </div>
+          <input id="defaultInterval" type="number" min="1" max="86400" style="width: 90px" />
+          <span class="sub">seconds</span>
+        </div>
+
+        <div class="setting">
+          <div class="grow">
+            <label class="switch">
+              <input type="checkbox" id="soundEnabled" />
+              <span class="title">Play a sound on page change</span>
+            </label>
+          </div>
+          <input id="soundVolume" type="range" min="0" max="100" step="5" aria-label="Volume" />
+          <button id="testSound" class="btn btn-secondary" data-i18n="optTestSound">Test sound</button>
+        </div>
+
+        <div class="setting">
+          <div class="grow">
+            <label class="switch">
+              <input type="checkbox" id="notificationsEnabled" />
+              <span class="title">Show desktop notifications</span>
+            </label>
+            <div class="hint">
+              On Windows, Focus Assist can suppress these silently. Use the test button to check.
+            </div>
+          </div>
+          <button id="testNotification" class="btn btn-secondary" data-i18n="optTestNotification">
+            Test notification
+          </button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="setting">
+          <div class="grow">
+            <label class="title">Site access</label>
+            <div class="hint" id="accessHint">
+              Auto Refresh asks for access one site at a time, only when you turn on a feature that
+              needs to read the page. Granting access to all sites skips those prompts.
+            </div>
+          </div>
+          <button id="grantAll" class="btn btn-secondary" data-i18n="optGrantAll">
+            Grant access to all sites
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------------------------------------------------------------- -->
+    <section id="panel-about" class="panel prose" role="tabpanel" hidden>
+      <h2>Privacy</h2>
+      <p>
+        Auto Refresh collects nothing, transmits nothing and sells nothing. There is no analytics,
+        no telemetry and no remote code. Everything below is verifiable in the source.
+      </p>
+      <ul>
+        <li>The tabs you are refreshing live in <code>chrome.storage.session</code>, which is held in memory and never written to disk.</li>
+        <li>Your site rules and settings live in <code>chrome.storage.sync</code>, which syncs through your own Google account — not through any server of ours.</li>
+        <li>Page monitoring hashes the watched text locally to compare it against the previous load. Page content is never transmitted.</li>
+      </ul>
+
+      <h2>Why each permission is needed</h2>
+      <table class="perm-table">
+        <thead><tr><th>Permission</th><th>What it is for</th></tr></thead>
+        <tbody>
+          <tr><td>storage</td><td>Saves your intervals, rules and the current refresh state on this device.</td></tr>
+          <tr><td>alarms</td><td>Schedules reloads of 30 seconds or longer. It is the only timer a Manifest V3 service worker can rely on, because Chrome shuts the worker down when idle.</td></tr>
+          <tr><td>tabs</td><td>Reads the URL and title of the tab you chose to refresh, so the right tab is reloaded and matched against your rules.</td></tr>
+          <tr><td>scripting</td><td>Injects the refresh agent into pages you explicitly enabled — this is what provides sub-30-second timing, scroll memory and change detection.</td></tr>
+          <tr><td>activeTab</td><td>Lets you point at a region of the current page to watch, using only the tab you invoked the extension on.</td></tr>
+          <tr><td>notifications</td><td>Shows a desktop alert when a watched page changes. Opt-in per job.</td></tr>
+          <tr><td>offscreen</td><td>Plays the alert sound. Manifest V3 service workers have no DOM and cannot play audio directly.</td></tr>
+          <tr><td>host access</td><td>Requested at runtime, one site at a time, and only for features that must read the page.</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Known limits</h2>
+      <ul>
+        <li>Intervals under 1 second are not offered: Chrome throttles timers in background tabs to about one per second, so anything faster would only hold while the tab is in front.</li>
+        <li>A page with unsaved text in a form shows Chrome's "Leave site?" dialog. Auto Refresh detects this and waits rather than fighting it.</li>
+        <li>Jobs do not survive a browser restart, because every tab gets a new id. Use a site rule to have them restart themselves.</li>
+        <li>Very short intervals can get you rate-limited or temporarily blocked by a site. Random intervals help; below 5 seconds, be careful.</li>
+      </ul>
+
+      <h2>Source and support</h2>
+      <p>
+        <a href="https://github.com/AndrewKaranja/AutoRefresh" target="_blank" rel="noopener noreferrer">GitHub</a>
+        ·
+        <a href="https://andrewkaranja.github.io/AutoRefresh/privacy.html" target="_blank" rel="noopener noreferrer">Privacy policy</a>
+        ·
+        <a href="https://www.buymeacoffee.com/andrewkaranja" target="_blank" rel="noopener noreferrer">Buy me a coffee</a>
+      </p>
+    </section>
+
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

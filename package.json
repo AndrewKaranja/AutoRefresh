@@ -1,0 +1,35 @@
+{
+  "name": "auto-refresh",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Chrome extension that auto-reloads tabs on a schedule, with hard refresh, random intervals, scroll memory and free page-change alerts.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Andrew Karanja",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AndrewKaranja/AutoRefresh.git"
+  },
+  "scripts": {
+    "test": "node --test \"test/*.test.js\"",
+    "validate": "node scripts/validate-manifest.mjs",
+    "pack": "node scripts/pack.mjs",
+    "icons": "powershell -ExecutionPolicy Bypass -File scripts/gen-icons.ps1",
+    "build": "npm run validate && npm test && npm run pack",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.268",
+    "typescript": "^5.4.0",
+    "@types/node": "^22.0.0"
+  },
+  "comments": {
+    "devDependencies": [
+      "Optional. Nothing here is needed to develop or ship the extension --",
+      "src/ is loaded unpacked directly, and both scripts/ tools use only",
+      "node's standard library. These exist solely so `npm run typecheck`",
+      "can check the JSDoc types, which is where the ReferenceErrors that",
+      "left v1.0.2 non-functional would have shown up as editor squiggles."
+    ]
+  }
+}

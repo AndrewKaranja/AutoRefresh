@@ -1,0 +1,97 @@
+/* ==========================================================================
+   Shared design tokens + reset. Linked by both popup.html and options.html so
+   the two surfaces cannot drift apart.
+
+   The palette is declared three times on purpose:
+     1. bare :root            -- the complete light palette, always defined
+     2. prefers-color-scheme  -- guarded against an explicit light choice
+     3. [data-theme="dark"]   -- so the manual toggle wins in both directions
+   No color gets its only definition inside a media query.
+   ========================================================================== */
+
+:root {
+  --bg: #ffffff;
+  --bg-sunken: #f5f7fa;
+  --bg-raised: #ffffff;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --text: #0f172a;
+  --text-dim: #64748b;
+  --text-faint: #94a3b8;
+  --accent: #0ea5c4;
+  --accent-hover: #0b8ca6;
+  --accent-soft: #e0f6fb;
+  /* Text drawn ON the accent fill. Flips dark in the dark palette, where the
+     accent is a light cyan and white would fail contrast. */
+  --on-accent: #ffffff;
+  --active: #b45309;
+  --active-soft: #fef3c7;
+  --danger: #dc2626;
+  --danger-soft: #fee2e2;
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 2px 8px rgba(15, 23, 42, 0.04);
+  --radius: 8px;
+  --font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #0f172a;
+    --bg-sunken: #1e293b;
+    --bg-raised: #1e293b;
+    --border: #334155;
+    --border-strong: #475569;
+    --text: #f1f5f9;
+    --text-dim: #94a3b8;
+    --text-faint: #64748b;
+    --accent: #22d3ee;
+    --accent-hover: #67e8f9;
+    --accent-soft: #164e63;
+    --on-accent: #0f172a;
+    --active: #fbbf24;
+    --active-soft: #451a03;
+    --danger: #f87171;
+    --danger-soft: #450a0a;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+}
+
+:root[data-theme='dark'] {
+  --bg: #0f172a;
+  --bg-sunken: #1e293b;
+  --bg-raised: #1e293b;
+  --border: #334155;
+  --border-strong: #475569;
+  --text: #f1f5f9;
+  --text-dim: #94a3b8;
+  --text-faint: #64748b;
+  --accent: #22d3ee;
+  --accent-hover: #67e8f9;
+  --accent-soft: #164e63;
+  --on-accent: #0f172a;
+  --active: #fbbf24;
+  --active-soft: #451a03;
+  --danger: #f87171;
+  --danger-soft: #450a0a;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 400 13px/1.5 var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

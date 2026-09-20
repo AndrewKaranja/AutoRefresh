@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Privacy Policy — Auto Refresh</title>
+    <meta
+      name="description"
+      content="Auto Refresh collects no data, transmits nothing and has no server. Full privacy policy for the Chrome extension."
+    />
+    <style>
+      :root {
+        --bg: #ffffff;
+        --bg-sunken: #f5f7fa;
+        --border: #e2e8f0;
+        --text: #0f172a;
+        --text-dim: #475569;
+        --accent: #0b8ca6;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0f172a;
+          --bg-sunken: #1e293b;
+          --border: #334155;
+          --text: #f1f5f9;
+          --text-dim: #94a3b8;
+          --accent: #22d3ee;
+        }
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        max-width: 68ch;
+        margin: 0 auto;
+        padding: 48px 20px 80px;
+        background: var(--bg);
+        color: var(--text);
+        font: 400 16px/1.65 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      h1 { font-size: 28px; letter-spacing: -0.02em; margin-bottom: 6px; }
+      h2 { font-size: 19px; margin: 34px 0 10px; letter-spacing: -0.01em; }
+      p, li { color: var(--text-dim); margin-bottom: 12px; }
+      ul { margin-left: 20px; }
+      li { margin-bottom: 6px; }
+      a { color: var(--accent); }
+      code {
+        padding: 1px 5px;
+        border-radius: 4px;
+        background: var(--bg-sunken);
+        font: 0.88em/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+      .meta { color: var(--text-dim); font-size: 14px; margin-bottom: 28px; }
+      .lede {
+        padding: 16px 18px;
+        border-left: 3px solid var(--accent);
+        border-radius: 0 8px 8px 0;
+        background: var(--bg-sunken);
+        margin-bottom: 8px;
+      }
+      .lede p:last-child { margin-bottom: 0; }
+      .scroll { overflow-x: auto; margin-bottom: 14px; }
+      table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+      th, td {
+        padding: 9px 12px;
+        border-bottom: 1px solid var(--border);
+        text-align: left;
+        vertical-align: top;
+        color: var(--text-dim);
+      }
+      th { color: var(--text); font-weight: 600; white-space: nowrap; }
+      td:first-child { white-space: nowrap; }
+      footer {
+        margin-top: 44px;
+        padding-top: 18px;
+        border-top: 1px solid var(--border);
+        font-size: 14px;
+        color: var(--text-dim);
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Privacy Policy</h1>
+    <p class="meta">
+      Auto Refresh for Chrome · version 2.0.0 and later · last updated 20 September 2026
+    </p>
+
+    <div class="lede">
+      <p>
+        <strong>Auto Refresh collects no data.</strong> It does not transmit, sell or share
+        anything. There is no analytics, no telemetry, no tracking, no remote code and no server —
+        the extension makes no network requests of its own.
+      </p>
+    </div>
+    <p>
+      Every claim below is verifiable in the source at
+      <a href="https://github.com/AndrewKaranja/AutoRefresh">github.com/AndrewKaranja/AutoRefresh</a>.
+    </p>
+
+    <h2>What is stored, and where</h2>
+    <p>All of it stays in your browser, in Chrome's own extension storage.</p>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr><th>What</th><th>Where</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Tabs currently being refreshed, and their settings</td>
+            <td><code>storage.session</code></td>
+            <td>Held in memory only. Never written to disk. Cleared when Chrome closes.</td>
+          </tr>
+          <tr>
+            <td>Your site rules and preferences</td>
+            <td><code>storage.sync</code></td>
+            <td>
+              Synced through <strong>your own Google account</strong> if you have Chrome sync
+              enabled. It does not pass through any server operated by us.
+            </td>
+          </tr>
+          <tr>
+            <td>Lifetime reload and change counts</td>
+            <td><code>storage.local</code></td>
+            <td>Two integers.</td>
+          </tr>
+          <tr>
+            <td>A hash and text snapshot of a watched page region</td>
+            <td><code>storage.local</code></td>
+            <td>
+              Only for pages where you explicitly turned on change monitoring. Capped at 200
+              entries, oldest evicted. Keyed by a hash of the URL rather than the URL itself.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>Page content</h2>
+    <p>
+      When you enable change monitoring, the extension reads the visible text of the region you
+      selected in order to tell whether it changed since the last reload. That text is hashed
+      locally and compared locally. It is never transmitted anywhere. The most recent snapshot is
+      kept on your device solely so the notification can tell you <em>what</em> changed.
+    </p>
+    <p>If you do not enable monitoring, the extension never reads page content at all.</p>
+
+    <h2>Site access</h2>
+    <p>
+      Auto Refresh installs with no host permissions. Basic refreshing needs none — reloading a tab
+      does not require permission to read it.
+    </p>
+    <p>
+      Access to a specific site is requested at the moment you enable a feature that must read the
+      page: intervals shorter than 30 seconds, scroll-position memory, or change monitoring. Each
+      request covers one site. You may decline, in which case the extension runs in basic mode, and
+      you can revoke access at any time from <code>chrome://extensions</code>.
+    </p>
+
+    <h2>What is never done</h2>
+    <ul>
+      <li>No data is sent to the developer or to any third party.</li>
+      <li>No advertising, ad networks or affiliate injection.</li>
+      <li>
+        No browsing history is collected. The extension can see the URL of a tab you explicitly
+        chose to refresh, and uses it only to reload that tab and match it against rules you wrote
+        yourself.
+      </li>
+      <li>No user accounts, no sign-in, no identifiers of any kind.</li>
+      <li>No remotely hosted code. Everything that runs is in the reviewed package.</li>
+    </ul>
+
+    <h2>Permissions and why each exists</h2>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr><th>Permission</th><th>Purpose</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>storage</code></td><td>Saves your settings and the current refresh state on this device.</td></tr>
+          <tr><td><code>alarms</code></td><td>Schedules reloads of 30 seconds or longer. Manifest V3 service workers are shut down when idle, making this the only reliable timer available.</td></tr>
+          <tr><td><code>tabs</code></td><td>Reads the URL and title of tabs you chose to refresh, so the correct tab is reloaded.</td></tr>
+          <tr><td><code>scripting</code></td><td>Injects the refresh agent into pages you explicitly enabled.</td></tr>
+          <tr><td><code>activeTab</code></td><td>Lets you select a region of the current page to watch.</td></tr>
+          <tr><td><code>notifications</code></td><td>Shows a desktop alert when a watched page changes. Opt-in.</td></tr>
+          <tr><td><code>offscreen</code></td><td>Plays the alert sound; Manifest V3 service workers cannot play audio directly.</td></tr>
+          <tr><td>Optional host access</td><td>Requested per site, at runtime, only for features that must read the page.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>Children</h2>
+    <p>
+      Auto Refresh is a general-purpose utility, is not directed at children, and collects no
+      personal information from anyone.
+    </p>
+
+    <h2>Changes to this policy</h2>
+    <p>
+      Any change will be published here and noted in the
+      <a href="https://github.com/AndrewKaranja/AutoRefresh/blob/master/CHANGELOG.md">changelog</a>.
+      Because the extension collects nothing, a change here would mean a change in what the
+      extension does — and that would be announced in the release notes, not made quietly.
+    </p>
+
+    <h2>Contact</h2>
+    <p>
+      Open an issue at
+      <a href="https://github.com/AndrewKaranja/AutoRefresh/issues">github.com/AndrewKaranja/AutoRefresh/issues</a>.
+    </p>
+
+    <footer>
+      Auto Refresh is free and open source under the MIT licence.
+      <a href="./">Home</a> ·
+      <a href="https://github.com/AndrewKaranja/AutoRefresh">Source</a>
+    </footer>
+  </body>
+</html>

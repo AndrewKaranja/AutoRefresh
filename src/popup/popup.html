@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Auto Refresh</title>
+    <!-- Classic, synchronous, in <head>: a module would be deferred and a
+         dark-mode user would see a white flash on every popup open. Inline
+         script is forbidden by the extension CSP, so this is the only
+         combination that works. -->
+    <script src="../lib/theme.js"></script>
+    <link rel="stylesheet" href="../lib/tokens.css" />
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header class="header">
+      <img src="../assets/icons/icon-32.png" alt="" />
+      <h1>Auto Refresh</h1>
+      <button id="openOptions" class="icon-btn" title="Settings" aria-label="Settings">⚙</button>
+    </header>
+
+    <div class="tab-card">
+      <img id="favicon" class="favicon" src="../assets/icons/icon-16.png" alt="" />
+      <div class="meta">
+        <div id="tabTitle" class="title">—</div>
+        <div id="tabUrl" class="url"></div>
+      </div>
+      <span id="statusPill" class="pill" data-state="off">Off</span>
+    </div>
+
+    <div id="restrictedNotice" class="notice error section" hidden>
+      Chrome does not allow extensions to refresh this page.
+    </div>
+
+    <div id="pausedNotice" class="notice info section" hidden>
+      <span id="pausedText"></span>
+      <button id="resumeHere" class="btn-tiny" style="margin-left: 6px">Resume here</button>
+    </div>
+
+    <main id="main">
+      <section class="section">
+        <span class="label" data-i18n="popupIntervalLabel">Refresh every</span>
+        <div id="chips" class="chips"></div>
+
+        <div class="custom-row">
+          <input
+            id="customInterval"
+            type="number"
+            min="1"
+            max="86400"
+            step="1"
+            aria-label="Custom interval in seconds"
+          />
+          <span class="unit" data-i18n="popupSeconds">seconds</span>
+        </div>
+
+        <div id="fastWarning" class="notice warn" hidden data-i18n="warnFast"></div>
+      </section>
+
+      <div id="permPrompt" class="perm" hidden>
+        <h2 data-i18n="permTitle">Allow access to this site?</h2>
+        <p data-i18n="permBody"></p>
+        <div class="row">
+          <button id="permGrant" class="btn btn-primary" data-i18n="permGrant">Allow</button>
+          <button id="permSkip" class="btn btn-secondary" data-i18n="permBasic">Use basic mode</button>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="primary" class="btn btn-primary" data-i18n="popupStart">Start</button>
+        <button id="reloadNow" class="btn btn-secondary" title="Refresh now and restart the timer">
+          ↻
+        </button>
+      </div>
+
+      <div id="live" class="live" hidden>
+        <span><strong id="reloadCount">0</strong> reloads</span>
+        <span>·</span>
+        <span>next in <strong id="countdown">—</strong></span>
+      </div>
+
+      <details id="advanced">
+        <summary data-i18n="popupAdvanced">Advanced</summary>
+
+        <div class="field">
+          <label class="switch">
+            <input type="checkbox" id="randomize" />
+            <span data-i18n="advRandomize">Random interval</span>
+          </label>
+          <div class="row" id="randomRow" style="margin-top: 8px" hidden>
+            <input id="randomMin" type="number" min="1" max="86400" aria-label="Minimum seconds" />
+            <span class="unit">to</span>
+            <input id="randomMax" type="number" min="1" max="86400" aria-label="Maximum seconds" />
+            <span class="unit" data-i18n="popupSeconds">seconds</span>
+          </div>
+          <div class="hint" data-i18n="advRandomizeHint"></div>
+        </div>
+
+        <div class="field">
+          <label for="reloadMethod" data-i18n="advReloadMethod">Reload type</label>
+          <select id="reloadMethod">
+            <option value="soft" data-i18n="advSoft">Normal</option>
+            <option value="hard" data-i18n="advHard">Hard (bypass cache)</option>
+            <option value="navigate" data-i18n="advNavigate">Re-open URL</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="scopeMode" data-i18n="advScope">Keep refreshing while</label>
+          <select id="scopeMode">
+            <option value="origin" data-i18n="advScopeOrigin">on this site</option>
+            <option value="exact" data-i18n="advScopeExact">on this exact page</option>
+            <option value="any" data-i18n="advScopeAny">in this tab, anywhere</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="maxReloads" data-i18n="advMaxReloads">Stop after</label>
+          <div class="row">
+            <input id="maxReloads" type="number" min="0" max="100000" step="1" value="0" />
+            <span class="unit" data-i18n="advMaxReloadsUnit">reloads (0 = never)</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="switch">
+            <input type="checkbox" id="scrollRestore" checked />
+            <span data-i18n="advScrollRestore">Keep scroll position</span>
+          </label>
+        </div>
+
+        <div class="field">
+          <label class="switch">
+            <input type="checkbox" id="skipDirtyForm" checked />
+            <span data-i18n="advSkipDirtyForm">Skip reload if a form has unsaved text</span>
+          </label>
+        </div>
+      </details>
+
+      <section class="section" style="margin-top: 12px">
+        <label class="switch">
+          <input type="checkbox" id="monitorEnabled" />
+          <span data-i18n="monitorTitle">Alert me when the page changes</span>
+        </label>
+
+        <div id="monitorBody" class="monitor-body" hidden>
+          <div class="region">
+            <code id="monitorRegion" data-i18n="monitorWholePage">Whole page</code>
+            <button id="pickRegion" class="btn-tiny" data-i18n="monitorPick">Pick region…</button>
+          </div>
+
+          <div class="field" style="margin-bottom: 0">
+            <label for="ignoreRegex" data-i18n="monitorIgnore">Ignore text matching</label>
+            <input id="ignoreRegex" type="text" placeholder="\d{1,2}:\d{2}(:\d{2})?" />
+            <div class="hint" data-i18n="monitorIgnoreHint"></div>
+          </div>
+
+          <div class="checks">
+            <label class="check"
+              ><input type="checkbox" id="onNotify" checked />
+              <span data-i18n="monitorNotify">Notify</span></label
+            >
+            <label class="check"
+              ><input type="checkbox" id="onSound" checked />
+              <span data-i18n="monitorSound">Sound</span></label
+            >
+            <label class="check"
+              ><input type="checkbox" id="onStop" /> <span data-i18n="monitorStop">Stop</span></label
+            >
+            <label class="check"
+              ><input type="checkbox" id="onFocus" />
+              <span data-i18n="monitorFocus">Switch to tab</span></label
+            >
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <a id="activeCount" href="#"><span class="dot"></span>0 active</a>
+      <span class="spacer"></span>
+      <a id="alwaysRefresh" href="#" data-i18n="optAlwaysRefresh">Always refresh this site</a>
+    </footer>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

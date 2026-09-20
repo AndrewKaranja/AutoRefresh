@@ -1,0 +1,35 @@
+{
+  // Type-checking only -- there is no build step and nothing is emitted.
+  // `npm run typecheck` (and your editor) uses this to check the JSDoc types
+  // in src/lib/schema.js against every call site.
+  //
+  // Worth the two devDependencies purely because both bugs that left v1.0.2
+  // non-functional -- a `const` referenced outside its block, and a call to a
+  // function that was never defined -- are exactly what this catches.
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "strict": true,
+    "noImplicitAny": false,
+    "noUnusedLocals": true,
+    "skipLibCheck": true,
+    "types": ["chrome", "node"]
+  },
+  "include": ["src/**/*.js", "scripts/**/*.mjs", "test/**/*.js"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    // Classic scripts, not modules. They run in the page or in an offscreen
+    // document, use `var`, and deliberately duplicate constants from lib/ --
+    // scripts/validate-manifest.mjs checks those instead.
+    "src/content/agent.js",
+    "src/content/picker.js",
+    "src/offscreen/audio.js",
+    "src/lib/theme.js"
+  ]
+}

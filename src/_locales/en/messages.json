@@ -1,0 +1,111 @@
+{
+  "extName": {
+    "message": "Auto Refresh",
+    "description": "Extension name shown in the toolbar and Web Store."
+  },
+  "extDesc": {
+    "message": "Auto-reload any tab on your schedule, with hard refresh, random intervals, scroll memory and free page-change alerts.",
+    "description": "Web Store short description."
+  },
+  "actionTitle": { "message": "Auto Refresh" },
+
+  "cmdToggle": { "message": "Start or stop refreshing the current tab" },
+  "cmdReloadNow": { "message": "Refresh now and restart the timer" },
+
+  "popupIntervalLabel": { "message": "Refresh every" },
+  "popupCustom": { "message": "Custom" },
+  "popupStart": { "message": "Start" },
+  "popupStop": { "message": "Stop" },
+  "popupPause": { "message": "Pause" },
+  "popupResume": { "message": "Resume" },
+  "popupAdvanced": { "message": "Advanced" },
+  "popupSeconds": { "message": "seconds" },
+
+  "statusRunning": { "message": "Running" },
+  "statusPaused": { "message": "Paused" },
+  "statusOff": { "message": "Off" },
+
+  "advRandomize": { "message": "Random interval" },
+  "advRandomizeHint": { "message": "Varies each reload, so the pattern looks less automated." },
+  "advReloadMethod": { "message": "Reload type" },
+  "advSoft": { "message": "Normal" },
+  "advHard": { "message": "Hard (bypass cache)" },
+  "advNavigate": { "message": "Re-open URL (avoids form resubmission)" },
+  "advMaxReloads": { "message": "Stop after" },
+  "advMaxReloadsUnit": { "message": "reloads (0 = never stop)" },
+  "advScrollRestore": { "message": "Keep scroll position" },
+  "advSkipDirtyForm": { "message": "Skip reload if a form has unsaved text" },
+  "advScope": { "message": "Keep refreshing while" },
+  "advScopeOrigin": { "message": "on this site" },
+  "advScopeExact": { "message": "on this exact page" },
+  "advScopeAny": { "message": "in this tab, anywhere" },
+
+  "monitorTitle": { "message": "Alert me when the page changes" },
+  "monitorPick": { "message": "Pick region…" },
+  "monitorPickAgain": { "message": "Change region" },
+  "monitorWholePage": { "message": "Whole page" },
+  "monitorIgnore": { "message": "Ignore text matching" },
+  "monitorIgnoreHint": {
+    "message": "A regular expression. Use it to hide clocks, timestamps or rotating ads that would otherwise count as a change."
+  },
+  "monitorOnChange": { "message": "When it changes" },
+  "monitorNotify": { "message": "Show a notification" },
+  "monitorSound": { "message": "Play a sound" },
+  "monitorStop": { "message": "Stop refreshing" },
+  "monitorFocus": { "message": "Switch to the tab" },
+
+  "warnFast": {
+    "message": "Very short intervals can get you rate-limited or temporarily blocked by the site."
+  },
+  "warnBackground": {
+    "message": "Chrome slows timers in background tabs to about once a second."
+  },
+
+  "pauseUser": { "message": "Paused" },
+  "pauseNavigatedAway": { "message": "Paused — you navigated away" },
+  "pauseMaxReloads": { "message": "Finished — reload limit reached" },
+  "pauseDeadline": { "message": "Finished — time limit reached" },
+  "pauseKeywordMatch": { "message": "Stopped — the page changed" },
+  "pausePageNotResponding": { "message": "Paused — the page stopped responding" },
+  "pauseNoPermission": { "message": "Paused — site access was revoked" },
+  "pauseDirtyForm": { "message": "Waiting — unsaved text in a form" },
+  "pauseDiscarded": { "message": "Paused — Chrome unloaded this tab" },
+  "resumeHere": { "message": "Resume here" },
+
+  "permTitle": { "message": "Allow access to this site?" },
+  "permBody": {
+    "message": "Refreshing faster than 30 seconds, keeping your scroll position and watching for changes all need permission to read this one site. Basic refreshing works without it."
+  },
+  "permGrant": { "message": "Allow" },
+  "permBasic": { "message": "Use basic mode" },
+  "permDeniedNote": {
+    "message": "Running in basic mode: 30 seconds or slower, no scroll memory, no change alerts."
+  },
+
+  "optJobs": { "message": "Active" },
+  "optRules": { "message": "Site rules" },
+  "optMonitors": { "message": "Watching" },
+  "optSettings": { "message": "Settings" },
+  "optAbout": { "message": "About" },
+  "optNoJobs": { "message": "Nothing is refreshing right now." },
+  "optNoRules": { "message": "No site rules yet." },
+  "optAddRule": { "message": "Add rule" },
+  "optAlwaysRefresh": { "message": "Always refresh this site" },
+  "optGrantAll": { "message": "Grant access to all sites" },
+  "optTheme": { "message": "Theme" },
+  "optThemeAuto": { "message": "Match system" },
+  "optThemeLight": { "message": "Light" },
+  "optThemeDark": { "message": "Dark" },
+  "optTestSound": { "message": "Test sound" },
+  "optTestNotification": { "message": "Test notification" },
+  "optVolume": { "message": "Volume" },
+
+  "notifChangedTitle": { "message": "Page changed" },
+  "notifTestTitle": { "message": "Notifications are working" },
+  "notifTestBody": {
+    "message": "If you did not see this on screen, check Windows Focus Assist or your system notification settings."
+  },
+
+  "statsReloads": { "message": "reloads" },
+  "statsChanges": { "message": "changes detected" }
+}

@@ -1,0 +1,62 @@
+{
+  "manifest_version": 3,
+  "name": "__MSG_extName__",
+  "description": "__MSG_extDesc__",
+  "version": "2.0.0",
+  "default_locale": "en",
+  "minimum_chrome_version": "116",
+
+  "permissions": [
+    "storage",
+    "alarms",
+    "tabs",
+    "scripting",
+    "notifications",
+    "offscreen",
+    "activeTab"
+  ],
+
+  "optional_host_permissions": ["<all_urls>"],
+
+  "background": {
+    "service_worker": "background/sw.js",
+    "type": "module"
+  },
+
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "__MSG_actionTitle__",
+    "default_icon": {
+      "16": "assets/icons/icon-16.png",
+      "32": "assets/icons/icon-32.png",
+      "48": "assets/icons/icon-48.png",
+      "128": "assets/icons/icon-128.png"
+    }
+  },
+
+  "options_ui": {
+    "page": "options/options.html",
+    "open_in_tab": false
+  },
+
+  "commands": {
+    "toggle-refresh": {
+      "suggested_key": { "default": "Alt+Shift+R" },
+      "description": "__MSG_cmdToggle__"
+    },
+    "reload-now": {
+      "suggested_key": { "default": "Alt+Shift+N" },
+      "description": "__MSG_cmdReloadNow__"
+    },
+    "_execute_action": {
+      "suggested_key": { "default": "Alt+Shift+A" }
+    }
+  },
+
+  "icons": {
+    "16": "assets/icons/icon-16.png",
+    "32": "assets/icons/icon-32.png",
+    "48": "assets/icons/icon-48.png",
+    "128": "assets/icons/icon-128.png"
+  }
+}

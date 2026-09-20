@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Auto Refresh audio</title>
+  </head>
+  <body>
+    <!--
+      Never displayed. This document exists solely to give the service worker
+      a DOM to play an <audio> element in, which MV3 workers cannot do
+      themselves. Chrome closes it automatically after 30 seconds of silence.
+    -->
+    <script src="audio.js"></script>
+  </body>
+</html>

@@ -1,0 +1,11 @@
+node_modules/
+dist/
+*.zip
+*.crx
+*.pem
+*.log
+.env
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
