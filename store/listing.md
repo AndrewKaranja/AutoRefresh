@@ -185,12 +185,17 @@ KNOWN LIMITS, STATED UP FRONT
 ## Pre-submission checklist
 
 - [ ] `npm run build` passes (validate + tests + pack)
-- [ ] Loaded `dist/auto-refresh-2.0.0.zip` unpacked and smoke-tested — **especially
-      the packed-only behaviour**, since sub-30s alarms are honoured unpacked and
-      silently dropped once packed
+- [ ] Loaded the freshly built `dist/auto-refresh-<version>.zip` and smoke-tested
+      — **especially the packed-only behaviour**, since sub-30s alarms are
+      honoured unpacked and silently dropped once packed
+- [ ] Version bumped **before** building. The Web Store refuses an upload whose
+      version already exists, so a re-upload always needs a new number — you
+      cannot patch a published version in place
 - [ ] GitHub Pages is live and the privacy URL actually loads
 - [ ] Screenshots in `store/` are current (1280×800 or 640×400)
 - [ ] Version bumped in `src/manifest.json` **and** `package.json`
 - [ ] `CHANGELOG.md` updated
-- [ ] Staged rollout set to 10% for the first 2.0.0 push — v1 users are on a
-      build that does not work, so any new crash class will be loud
+- [ ] Staged rollout percentage chosen deliberately. A cautious 10% is right
+      for a feature release — but a release that *fixes* a fault in the
+      currently-published build should go out at 100%, since holding it back
+      leaves most users on the broken version

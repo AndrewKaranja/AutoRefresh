@@ -101,6 +101,7 @@ async function init() {
   // stored job, so a draft applied first was silently overwritten and the
   // region you had just picked vanished.
   await applyPickedRegion();
+  await resumeInterruptedStart();
 
   /**
    * Picks up the region chosen by the element picker.
@@ -130,6 +131,34 @@ async function init() {
       await refreshState();
       els.monitorRegion.textContent = selector;
       els.monitorRegion.title = selector;
+    }
+  }
+
+  /**
+   * Completes a start that was interrupted by the permission dialog.
+   *
+   * Granting is handled by the service worker via permissions.onAdded, but
+   * DENYING fires no event at all -- so if this popup was destroyed by the
+   * dialog and the user said no, the parked intent would simply rot and the
+   * click would have achieved nothing. Reopening the popup finishes the job
+   * the only way that is still possible: in basic mode.
+   */
+  async function resumeInterruptedStart() {
+    const pending = state.pendingStart;
+    if (!pending || pending.tabId !== state.tab?.id) return;
+
+    await send({ type: MSG.SET_PENDING_START, pending: null });
+    state.pendingStart = null;
+
+    // The worker already handled the granted case; a job here means it won.
+    if (state.job) return;
+
+    const cfg = { ...pending.job };
+    await startJob(state.hasAccess ? cfg : downgrade(cfg));
+    if (!state.hasAccess) {
+      els.errorNotice.hidden = false;
+      els.errorNotice.className = 'notice info section';
+      els.errorNotice.textContent = t('permDeniedNote');
     }
   }
 
@@ -497,6 +526,23 @@ async function init() {
         return;
       }
 
+      // Record the intent BEFORE asking.
+      //
+      // chrome.permissions.request() closes this popup: Chrome puts its own
+      // confirmation dialog up and tears the popup down with it, so the
+      // promise below may never resolve and nothing after it would ever run.
+      // That is why granting appeared to do nothing and Start had to be
+      // pressed a second time. With the intent parked in the worker,
+      // permissions.onAdded finishes the job whether or not this context
+      // survives -- and if it does survive, the code below completes normally
+      // and clears the record.
+      if (pendingStart) {
+        await send({
+          type: MSG.SET_PENDING_START,
+          pending: { tabId: state.tab.id, url: state.tab.url, job: collect() },
+        });
+      }
+
       let granted = false;
       try {
         granted = await chrome.permissions.request({ origins: [pattern] });
@@ -518,6 +564,10 @@ async function init() {
       }
       pendingStart = false;
 
+      // Still alive, so finish here and drop the parked intent -- otherwise
+      // the worker would start the job a second time.
+      await send({ type: MSG.SET_PENDING_START, pending: null });
+
       // Denied: start anyway with what basic mode can deliver, and say so,
       // rather than leaving the click with nothing to show for it.
       const cfg = collect();
@@ -535,6 +585,7 @@ async function init() {
     guarded(async () => {
       els.permPrompt.hidden = true;
       els.primary.disabled = false;
+      await send({ type: MSG.SET_PENDING_START, pending: null });
       if (!pendingStart) {
         // Declined a mid-run upgrade: re-render so the control they toggled
         // snaps back to what the job is actually doing.

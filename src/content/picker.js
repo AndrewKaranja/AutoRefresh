@@ -8,10 +8,19 @@
  * shares with lib/selector.js are duplicated below and checked by
  * scripts/validate-manifest.mjs.
  *
- * THE TRAP THIS FILE IS BUILT AROUND: injecting the picker closes the popup.
- * There is no popup left to return a value to, so the result is sent to the
- * service worker, which parks it in a draft that the popup re-reads next time
- * it opens.
+ * TWO TRAPS THIS FILE IS BUILT AROUND
+ *
+ * 1. Injecting the picker closes the popup. There is no popup left to return a
+ *    value to, so the result is sent to the service worker, which parks it in
+ *    a draft the popup re-reads next time it opens.
+ *
+ * 2. Hit testing cannot toggle pointer-events. The overlay sits under the
+ *    cursor, so the hovered element has to be found by point -- but
+ *    `overlay.style.pointerEvents = 'none'` is a NORMAL inline declaration and
+ *    loses to the `!important` rule in picker.css. The toggle silently did
+ *    nothing, elementFromPoint kept returning the overlay, and the highlight
+ *    never moved. elementsFromPoint() (plural) sidesteps the whole problem by
+ *    returning the full stack, so we can just skip our own nodes.
  */
 (function () {
   'use strict';
@@ -113,7 +122,6 @@
       return { text: tag + '.' + classes.map(escapeIdent).join('.'), unique: false, strong: false };
     }
 
-    // Last resort: position among same-tag siblings.
     var index = 1;
     var sib = el;
     while ((sib = sib.previousElementSibling)) {
@@ -142,8 +150,7 @@
       depth++;
     }
 
-    var fallback = steps.join(' > ');
-    return { selector: fallback, depth: depth, strong: usedStrong };
+    return { selector: steps.join(' > '), depth: depth, strong: usedStrong };
   }
 
   function countMatches(selector) {
@@ -169,37 +176,77 @@
 
   var hint = document.createElement('div');
   hint.className = 'arf-picker-hint';
-  hint.innerHTML = 'Click the part of the page to watch · <kbd>Esc</kbd> to cancel';
+  hint.innerHTML =
+    'Click to watch this region' +
+    '<span class="arf-sep">|</span><kbd>&uarr;</kbd><kbd>&darr;</kbd> wider / narrower' +
+    '<span class="arf-sep">|</span><kbd>Esc</kbd> cancel';
+
+  // Corner ticks make the exact bounds readable over any background.
+  var corners = [];
+  for (var c = 0; c < 4; c++) {
+    var corner = document.createElement('div');
+    corner.className = 'arf-picker-corner';
+    corners.push(corner);
+  }
 
   var host = document.documentElement;
   host.appendChild(overlay);
   host.appendChild(highlight);
+  corners.forEach(function (node) {
+    host.appendChild(node);
+  });
   host.appendChild(label);
   host.appendChild(hint);
 
+  var ownNodes = [overlay, highlight, label, hint].concat(corners);
+
   var currentTarget = null;
   var currentSelector = null;
+  var lastPoint = { x: -1, y: -1 };
 
+  /**
+   * The topmost page element at a point, skipping our own chrome.
+   *
+   * elementsFromPoint returns the whole stack, so no pointer-events juggling
+   * is needed -- which is what the old implementation got wrong.
+   */
   function elementUnder(x, y) {
-    // The overlay swallows pointer events so the cursor never reaches the
-    // page; hide it for the duration of the hit test.
-    overlay.style.pointerEvents = 'none';
-    var el = document.elementFromPoint(x, y);
-    overlay.style.pointerEvents = 'auto';
-    if (!el || el === overlay || el === highlight || el === label || el === hint) return null;
-    return el;
+    var stack = document.elementsFromPoint(x, y);
+    for (var i = 0; i < stack.length; i++) {
+      var el = stack[i];
+      if (ownNodes.indexOf(el) !== -1) continue;
+      if (el === document.documentElement) continue;
+      return el;
+    }
+    return null;
   }
 
-  function onMove(event) {
-    var el = elementUnder(event.clientX, event.clientY);
+  function setTarget(el) {
     if (!el || el === currentTarget) return;
     currentTarget = el;
+    paint();
+  }
+
+  function paint() {
+    var el = currentTarget;
+    if (!el) return;
 
     var rect = el.getBoundingClientRect();
     highlight.style.left = rect.left + 'px';
     highlight.style.top = rect.top + 'px';
     highlight.style.width = rect.width + 'px';
     highlight.style.height = rect.height + 'px';
+
+    var positions = [
+      [rect.left, rect.top],
+      [rect.right, rect.top],
+      [rect.left, rect.bottom],
+      [rect.right, rect.bottom],
+    ];
+    corners.forEach(function (node, i) {
+      node.style.left = positions[i][0] - 4 + 'px';
+      node.style.top = positions[i][1] - 4 + 'px';
+    });
 
     var built = buildSelector(el);
     currentSelector = built.selector;
@@ -215,27 +262,100 @@
             : 'may break on redesign'
         : 'matches ' + matches + ' elements';
 
+    var size = Math.round(rect.width) + ' x ' + Math.round(rect.height);
+    var preview = (el.innerText || '').replace(/\s+/g, ' ').trim();
+
     label.innerHTML =
-      '<b>' +
+      '<span class="arf-sel">' +
       escapeHtml(built.selector) +
-      '</b> · <span class="' +
-      (quality === 'weak' ? 'arf-weak' : '') +
+      '</span>' +
+      '<span class="arf-dim"> &middot; ' +
+      escapeHtml(size) +
+      ' &middot; </span>' +
+      '<span class="' +
+      (quality === 'weak' ? 'arf-warn' : 'arf-good') +
       '">' +
       escapeHtml(note) +
-      '</span>';
+      '</span>' +
+      (preview
+        ? '<span class="arf-preview">' + escapeHtml(preview.slice(0, 120)) + '</span>'
+        : '<span class="arf-preview arf-warn">no visible text in this region</span>');
 
-    // Keep the label on screen: flip it below the element when there is no
-    // room above, and clamp it horizontally.
-    var top = rect.top - 30;
-    if (top < 4) top = Math.min(rect.bottom + 8, window.innerHeight - 34);
+    positionLabel(rect);
+  }
+
+  /** Keeps the label on screen and out of the way of the selection. */
+  function positionLabel(rect) {
+    // Measure rather than guess: the old code assumed a fixed 240px width and
+    // clipped the label on wide selectors.
+    var lw = label.offsetWidth;
+    var lh = label.offsetHeight;
+
+    var top = rect.top - lh - 6;
+    if (top < 4) top = rect.bottom + 6;
+    if (top + lh > window.innerHeight - 4) top = Math.max(4, window.innerHeight - lh - 4);
+
+    var left = rect.left;
+    if (left + lw > window.innerWidth - 4) left = window.innerWidth - lw - 4;
+    if (left < 4) left = 4;
+
     label.style.top = top + 'px';
-    label.style.left = Math.max(4, Math.min(rect.left, window.innerWidth - 240)) + 'px';
+    label.style.left = left + 'px';
   }
 
   function escapeHtml(s) {
-    return String(s).replace(/[&<>"]/g, function (c) {
-      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    return String(s).replace(/[&<>"]/g, function (ch) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch];
     });
+  }
+
+  function onMove(event) {
+    lastPoint.x = event.clientX;
+    lastPoint.y = event.clientY;
+    setTarget(elementUnder(event.clientX, event.clientY));
+  }
+
+  /**
+   * Arrow keys walk the DOM, which is how you actually land on the region you
+   * want. Hovering alone gives you whatever leaf happens to be under the
+   * cursor -- usually a <span> inside the thing you meant to select -- and
+   * there is no way to say "no, the container around that".
+   */
+  function widen() {
+    if (!currentTarget) return;
+    var parent = currentTarget.parentElement;
+    if (parent && parent !== document.documentElement) setTarget(parent);
+  }
+
+  function narrow() {
+    if (!currentTarget) return;
+    // Prefer the child still under the cursor, so narrowing follows the mouse
+    // rather than jumping to an unrelated first child.
+    var children = currentTarget.children;
+    if (!children || children.length === 0) return;
+
+    for (var i = 0; i < children.length; i++) {
+      var rect = children[i].getBoundingClientRect();
+      if (
+        rect.width > 0 &&
+        rect.height > 0 &&
+        lastPoint.x >= rect.left &&
+        lastPoint.x <= rect.right &&
+        lastPoint.y >= rect.top &&
+        lastPoint.y <= rect.bottom
+      ) {
+        setTarget(children[i]);
+        return;
+      }
+    }
+
+    for (var j = 0; j < children.length; j++) {
+      var r = children[j].getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) {
+        setTarget(children[j]);
+        return;
+      }
+    }
   }
 
   function finish(message) {
@@ -254,10 +374,9 @@
     event.preventDefault();
     event.stopPropagation();
 
-    var el = currentTarget;
-    if (!el) return finish({ type: MSG_PICKER_CANCELLED });
+    if (!currentTarget) return finish({ type: MSG_PICKER_CANCELLED });
 
-    var text = (el.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 60);
+    var text = (currentTarget.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 60);
     finish({ type: MSG_PICKER_RESULT, selector: currentSelector, textAnchor: text });
   }
 
@@ -266,7 +385,32 @@
       event.preventDefault();
       event.stopPropagation();
       finish({ type: MSG_PICKER_CANCELLED });
+      return;
     }
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      event.stopPropagation();
+      widen();
+      return;
+    }
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      event.stopPropagation();
+      narrow();
+      return;
+    }
+    if (event.key === 'Enter' && currentTarget) {
+      event.preventDefault();
+      event.stopPropagation();
+      var text = (currentTarget.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 60);
+      finish({ type: MSG_PICKER_RESULT, selector: currentSelector, textAnchor: text });
+    }
+  }
+
+  // The selection is anchored to viewport coordinates, so it has to be
+  // repainted when the page moves under it.
+  function onScrollOrResize() {
+    if (currentTarget) paint();
   }
 
   function cleanup() {
@@ -274,7 +418,9 @@
     overlay.removeEventListener('mousemove', onMove, true);
     overlay.removeEventListener('click', onClick, true);
     window.removeEventListener('keydown', onKey, true);
-    [overlay, highlight, label, hint].forEach(function (node) {
+    window.removeEventListener('scroll', onScrollOrResize, true);
+    window.removeEventListener('resize', onScrollOrResize, true);
+    ownNodes.forEach(function (node) {
       if (node.parentNode) node.parentNode.removeChild(node);
     });
   }
@@ -284,7 +430,18 @@
   overlay.addEventListener('mousemove', onMove, true);
   overlay.addEventListener('click', onClick, true);
   window.addEventListener('keydown', onKey, true);
+  window.addEventListener('scroll', onScrollOrResize, true);
+  window.addEventListener('resize', onScrollOrResize, true);
 
   // Leaving the page mid-pick must not strand the overlay or the flag.
   window.addEventListener('pagehide', cleanup, { once: true });
+
+  // Show something immediately rather than waiting for the first mouse move,
+  // so the picker never looks inert on open.
+  var initial = elementUnder(window.innerWidth / 2, window.innerHeight / 3);
+  if (initial) {
+    lastPoint.x = window.innerWidth / 2;
+    lastPoint.y = window.innerHeight / 3;
+    setTarget(initial);
+  }
 })();

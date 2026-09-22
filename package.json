@@ -1,6 +1,6 @@
 {
   "name": "auto-refresh",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "private": true,
   "description": "Chrome extension that auto-reloads tabs on a schedule, with hard refresh, random intervals, scroll memory and free page-change alerts.",
   "type": "module",

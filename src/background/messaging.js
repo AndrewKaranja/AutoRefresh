@@ -10,21 +10,23 @@
  * plumbing is written once, here, and never repeated.
  */
 
-import { MSG, PAUSE_REASON, SCHEMA_VERSION, STATUS } from '../lib/constants.js';
-import { clampInterval, makeJob, mergeJob, publicView } from '../lib/schema.js';
+import { MSG, PAUSE_REASON, STATUS } from '../lib/constants.js';
+import { mergeJob, publicView } from '../lib/schema.js';
 import { isRestrictedUrl, originPattern } from '../lib/scope.js';
 import {
   getDraft,
+  getPendingStart,
   getRules,
   getSettings,
   getStats,
   setDraft,
+  setPendingStart,
   setRules,
   setSettings,
 } from '../lib/storage.js';
 import { notify, playSound } from './alerts.js';
 import * as badge from './badge.js';
-import { getJob, listJobs, saveJob, updateJob } from './jobs.js';
+import { getJob, listJobs, updateJob } from './jobs.js';
 import { onSample } from './monitor.js';
 import { hasOriginAccess, injectAgentNow, needsPageAccess, registerAgentFor } from './permissions.js';
 import { maybeAutoStart } from './rules.js';
@@ -38,6 +40,7 @@ import {
   onPageTimer,
   pause,
   resume,
+  startForTab,
 } from './scheduler.js';
 
 /**
@@ -59,6 +62,25 @@ export function installRouter() {
 
     return true; // keep the port open for the async response
   });
+}
+
+/**
+ * Gives a job an in-page agent, but only if it actually needs one.
+ *
+ * A plain alarm-mode refresh does not, and injecting anyway would put our
+ * script on a page for no reason.
+ *
+ * @param {import('../lib/schema.js').Job} job
+ * @returns {Promise<void>}
+ */
+export async function attachAgentIfNeeded(job) {
+  if (!needsPageAccess(job)) return;
+  // Registration covers FUTURE loads of this origin and does nothing for the
+  // document already open, so the current page is injected directly too.
+  // Under activeTab alone the inject may fail, which is fine -- the job then
+  // simply runs in basic mode.
+  if (await hasOriginAccess(job.url)) await registerAgentFor(job.url);
+  await injectAgentNow(job.tabId);
 }
 
 /**
@@ -142,6 +164,7 @@ async function handle(message, sender) {
         hasAccess: url ? await hasOriginAccess(url) : false,
         settings: await getSettings(),
         draft: await getDraft(),
+        pendingStart: await getPendingStart(),
         activeCount: (await listJobs()).filter((j) => j.status === STATUS.RUNNING).length,
       };
     }
@@ -149,42 +172,17 @@ async function handle(message, sender) {
     case MSG.START_JOB: {
       const tabId = message.tabId ?? (await activeTabId());
       if (typeof tabId !== 'number') throw new Error('no tab');
-
-      const tab = await getTab(tabId);
-      if (!tab || !tab.url) throw new Error('no tab');
-      if (isRestrictedUrl(tab.url)) throw new Error('This page cannot be refreshed by an extension.');
-
-      const existing = await getJob(tabId);
-      // mergeJob, not Object.assign: the popup sends partial nested objects and
-      // a shallow assign would wipe monitor bookkeeping (see schema.js).
-      const job = existing
-        ? mergeJob(existing, { ...(message.job || {}), tabId, url: tab.url })
-        : makeJob({
-            tab,
-            intervalMs: clampInterval(message.job?.intervalMs ?? 30_000),
-            overrides: { ...(message.job || {}), schemaVersion: SCHEMA_VERSION },
-          });
-
-      job.status = STATUS.RUNNING;
-      job.pauseReason = null;
-      job.consecutiveStalls = 0;
-
-      await saveJob(job);
-      await arm(job);
-
-      // Only jobs that actually need to run code in the page get an agent.
-      // A plain alarm-mode refresh does not, and injecting one anyway would
-      // put our script on a page for no reason.
-      if (needsPageAccess(job)) {
-        // Registration covers FUTURE loads of this origin; it does nothing for
-        // the document already open, so the current page is injected directly.
-        // Under activeTab alone the inject may fail, which is fine -- the job
-        // simply runs in basic mode.
-        if (await hasOriginAccess(tab.url)) await registerAgentFor(tab.url);
-        await injectAgentNow(tabId);
-      }
-
+      const job = await startForTab(tabId, message.job || {});
+      await attachAgentIfNeeded(job);
       return { job: publicView(job) };
+    }
+
+    case MSG.SET_PENDING_START: {
+      // Written by the popup immediately BEFORE it calls
+      // chrome.permissions.request(), because that call closes the popup and
+      // destroys the code that would otherwise have started the job.
+      await setPendingStart(message.pending ?? null);
+      return;
     }
 
     case MSG.UPDATE_JOB: {

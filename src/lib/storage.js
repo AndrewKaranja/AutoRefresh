@@ -22,6 +22,10 @@ const SETTINGS_KEY = 'settings';
 const RULES_KEY = 'rules';
 const STATS_KEY = 'stats';
 const DRAFT_KEY = 'draft';
+const PENDING_START_KEY = 'pendingStart';
+
+/** How long a start may sit waiting on a permission answer. */
+const PENDING_START_TTL_MS = 2 * 60 * 1000;
 
 /** @returns {Promise<import('./schema.js').Settings>} */
 export async function getSettings() {
@@ -96,6 +100,42 @@ export async function getDraft() {
 export async function setDraft(draft) {
   if (draft === null) await chrome.storage.session.remove(DRAFT_KEY);
   else await chrome.storage.session.set({ [DRAFT_KEY]: draft });
+}
+
+/**
+ * A start that is waiting on a permission decision.
+ *
+ * Calling chrome.permissions.request() from a popup closes that popup: Chrome
+ * puts its own confirmation dialog up and tears the popup down with it. The
+ * promise never resolves, so any "...and then start the job" code sitting
+ * after the await simply never runs, and the user is left having to open the
+ * popup and press Start a second time.
+ *
+ * So the intent is written here BEFORE the request. Whichever context is still
+ * alive afterwards -- the popup if it survived, otherwise the service worker
+ * reacting to permissions.onAdded -- picks it up and finishes the job.
+ *
+ * @returns {Promise<{tabId: number, url: string, job: Object, at: number}|null>}
+ */
+export async function getPendingStart() {
+  const got = await chrome.storage.session.get(PENDING_START_KEY);
+  const pending = got[PENDING_START_KEY] || null;
+  // A denied request fires no event, so a stale record would otherwise sit
+  // here and fire on some unrelated future grant.
+  if (pending && Date.now() - pending.at > PENDING_START_TTL_MS) {
+    await setPendingStart(null);
+    return null;
+  }
+  return pending;
+}
+
+/**
+ * @param {{tabId: number, url: string, job: Object}|null} pending
+ * @returns {Promise<void>}
+ */
+export async function setPendingStart(pending) {
+  if (pending === null) await chrome.storage.session.remove(PENDING_START_KEY);
+  else await chrome.storage.session.set({ [PENDING_START_KEY]: { ...pending, at: Date.now() } });
 }
 
 /**

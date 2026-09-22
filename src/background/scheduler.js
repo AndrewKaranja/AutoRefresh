@@ -48,13 +48,14 @@ import {
   FIRE_DEDUPE_MS,
   PENDING_TTL_MS,
   RELOAD_METHOD,
+  SCHEMA_VERSION,
   STATS_FLUSH_MS,
   STATUS,
   WATCHDOG_GRACE_MS,
 } from '../lib/constants.js';
 import { alarmDelayMs, deriveMode, drawInterval, stopConditionMet, toAlarmMinutes } from '../lib/interval.js';
-import { scopeMatches } from '../lib/scope.js';
-import { publicView } from '../lib/schema.js';
+import { isRestrictedUrl, scopeMatches } from '../lib/scope.js';
+import { clampInterval, makeJob, mergeJob, publicView } from '../lib/schema.js';
 import { bumpStats } from '../lib/storage.js';
 import * as badge from './badge.js';
 import { deleteJob, getJob, listJobs, saveJob, withJobLock } from './jobs.js';
@@ -456,11 +457,39 @@ export async function onPageTimer(tabId) {
 // ---------------------------------------------------------------------------
 
 /**
- * @param {Job} job
+ * Creates or updates a job on a tab and arms it.
+ *
+ * The single start path, used by the popup, by the keyboard shortcut and by
+ * the permission-grant handler. Having one of these matters: the grant path
+ * runs in the service worker after the popup has been destroyed, and if it
+ * built jobs differently from the popup, a job started by granting permission
+ * would quietly differ from the same job started by pressing Start.
+ *
+ * @param {number} tabId
+ * @param {import('../lib/schema.js').JobPatch} [patch]
  * @returns {Promise<Job>}
  */
-export async function start(job) {
-  return arm(job);
+export async function startForTab(tabId, patch = {}) {
+  const tab = await getTab(tabId);
+  if (!tab || !tab.url) throw new Error('That tab is no longer open.');
+  if (isRestrictedUrl(tab.url)) throw new Error('This page cannot be refreshed by an extension.');
+
+  const existing = await getJob(tabId);
+  const job = existing
+    ? mergeJob(existing, { ...patch, tabId, url: tab.url })
+    : makeJob({
+        tab,
+        intervalMs: clampInterval(patch.intervalMs ?? 30_000),
+        overrides: { ...patch, schemaVersion: SCHEMA_VERSION },
+      });
+
+  job.status = STATUS.RUNNING;
+  job.pauseReason = null;
+  job.consecutiveStalls = 0;
+
+  await saveJob(job);
+  await arm(job);
+  return job;
 }
 
 /**

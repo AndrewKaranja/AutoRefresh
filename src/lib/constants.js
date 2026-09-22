@@ -122,6 +122,7 @@ export const MSG = {
   // ui -> service worker
   GET_STATE: 'GET_STATE',
   START_JOB: 'START_JOB',
+  SET_PENDING_START: 'SET_PENDING_START',
   STOP_JOB: 'STOP_JOB',
   PAUSE_JOB: 'PAUSE_JOB',
   RESUME_JOB: 'RESUME_JOB',

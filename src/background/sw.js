@@ -15,12 +15,12 @@
 
 import { MSG, PAUSE_REASON, STATUS } from '../lib/constants.js';
 import { defaultSettings } from '../lib/schema.js';
-import { isRestrictedUrl } from '../lib/scope.js';
-import { setSettings } from '../lib/storage.js';
+import { isRestrictedUrl, originOf } from '../lib/scope.js';
+import { getPendingStart, setPendingStart, setSettings } from '../lib/storage.js';
 import { tabIdFromNotification } from './alerts.js';
 import * as badge from './badge.js';
 import { getJob, listJobs, rekeyJob } from './jobs.js';
-import { installRouter } from './messaging.js';
+import { attachAgentIfNeeded, installRouter } from './messaging.js';
 import { hasOriginAccess, injectAgentNow, reconcileRegistrations } from './permissions.js';
 import {
   destroy,
@@ -30,6 +30,7 @@ import {
   onAlarm,
   pause,
   resume,
+  startForTab,
 } from './scheduler.js';
 
 installRouter();
@@ -182,6 +183,32 @@ chrome.permissions.onRemoved.addListener(async () => {
 
 chrome.permissions.onAdded.addListener(async () => {
   await ensureRehydrated();
+
+  // Finish a start that was waiting on this grant.
+  //
+  // chrome.permissions.request() closes the popup that called it -- Chrome
+  // replaces it with its own confirmation dialog -- so the popup code after
+  // the await never runs. Without this the user grants permission, nothing
+  // happens, and they have to reopen the popup and press Start again. The
+  // popup records its intent before asking; this is where it gets honoured.
+  const pending = await getPendingStart();
+  if (pending) {
+    await setPendingStart(null);
+    try {
+      if (await hasOriginAccess(pending.url)) {
+        const tab = await chrome.tabs.get(pending.tabId).catch(() => null);
+        // Only if the tab is still on the page they asked about -- granting
+        // access should not start a job on whatever they browsed to since.
+        if (tab && tab.url && originOf(tab.url) === originOf(pending.url)) {
+          const job = await startForTab(pending.tabId, pending.job || {});
+          await attachAgentIfNeeded(job);
+        }
+      }
+    } catch (err) {
+      console.warn('[AutoRefresh] could not start after permission grant', err);
+    }
+  }
+
   for (const job of await listJobs()) {
     if (job.status === STATUS.PAUSED && job.pauseReason === PAUSE_REASON.NO_PERMISSION) {
       if (await hasOriginAccess(job.url)) await resume(job.tabId);

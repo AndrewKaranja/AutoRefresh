@@ -4,10 +4,50 @@ All notable changes to this project are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.0.1] — unreleased
+## [2.0.2] — unreleased
 
-Reliability fixes found in testing of the 2.0.0 rewrite. Several of these made
-the extension report itself as running while never actually reloading.
+Fixes for two faults present in the published 2.0.1: granting site access did
+not start the job, and the element picker never showed what it was selecting.
+
+### Fixed
+
+- **Granting site access did not start the job.** Setting a sub-30-second
+  interval on a new site raised the permission prompt, and clicking Allow
+  appeared to do nothing — Start had to be pressed a second time.
+  `chrome.permissions.request()` closes the popup that calls it: Chrome puts
+  its own confirmation dialog up and tears the popup down with it, so the
+  promise never resolved and the code that would have started the job never
+  ran. The popup now records the pending start before asking, and the service
+  worker completes it from `permissions.onAdded`. If the request is *denied*
+  no event fires at all, so reopening the popup finishes the start in basic
+  mode instead of leaving the click with nothing to show for it.
+- **The picker showed a crosshair but never highlighted anything.** Hit testing
+  set `overlay.style.pointerEvents = 'none'` before calling
+  `elementFromPoint` — but that is a normal inline declaration and loses to the
+  `pointer-events: auto !important` rule in the injected stylesheet. The toggle
+  did nothing, so `elementFromPoint` kept returning the overlay itself, which
+  was then filtered out, and the hover handler bailed on every single move.
+  Replaced with `elementsFromPoint()`, which returns the whole stack and needs
+  no toggling at all.
+
+### Changed
+
+- **The picker now makes the selection unmistakable and adjustable.** The rest
+  of the page dims so the chosen region stands out, corner ticks mark the exact
+  bounds, and the label reports the element's size, a preview of the text that
+  will actually be watched, and whether the generated selector is likely to
+  survive a redesign. <kbd>↑</kbd> and <kbd>↓</kbd> widen the selection to the
+  parent or narrow it to the child under the cursor — hovering alone only ever
+  lands on whichever leaf happens to be beneath the pointer, usually a `<span>`
+  inside the thing you meant to pick, with no way to say "the container around
+  that". The selection also tracks scrolling, and a region with no visible text
+  is flagged, since text is what change detection compares.
+
+## [2.0.1] — 2026-09-22
+
+First published release of the 2.0 rewrite; 2.0.0 was never submitted.
+Reliability fixes found in testing. Several of these made the extension report
+itself as running while never actually reloading.
 
 ### Fixed
 
@@ -37,7 +77,8 @@ the extension report itself as running while never actually reloading.
   stayed set if a previous run ended without reaching cleanup, leaving the
   button permanently inert; injection failures disappearing into a rejected
   promise with no user-visible message; and the picked selector being applied
-  before `render()`, which promptly overwrote it from the stored job.
+  before `render()`, which promptly overwrote it from the stored job. (The
+  highlight itself was still broken in this release — see 2.0.2.)
 - **A transient reload failure deleted the job** instead of retrying.
 - Popup actions that threw failed silently. Every handler now reports errors
   in the UI rather than only to a console nobody has open.

@@ -3,27 +3,57 @@
  *
  * Injected with scripting.insertCSS, so it lands in the page's own stylesheet
  * set and competes with the site's CSS. Everything is therefore !important and
- * namespaced, and the z-index is at the top of the 32-bit range because some
+ * namespaced, and the z-index sits at the top of the 32-bit range because some
  * sites genuinely use z-index: 99999999 on their own overlays.
+ *
+ * NOTE on !important and pointer-events: the JS must never try to override
+ * these from an inline style. A normal inline declaration LOSES to an
+ * !important stylesheet rule, so `el.style.pointerEvents = 'none'` silently
+ * does nothing here. Hit testing uses elementsFromPoint() instead of toggling
+ * anything -- see picker.js.
  */
 
 .arf-picker-overlay {
   position: fixed !important;
   inset: 0 !important;
-  z-index: 2147483646 !important;
+  z-index: 2147483644 !important;
   cursor: crosshair !important;
   background: transparent !important;
   pointer-events: auto !important;
 }
 
+/*
+ * The selection itself. The enormous spread box-shadow dims the entire page
+ * except the chosen element, which is what makes the region unmistakable --
+ * a thin outline alone is very easy to lose on a busy page.
+ */
 .arf-picker-highlight {
   position: fixed !important;
   z-index: 2147483645 !important;
   pointer-events: none !important;
-  border: 2px solid #0ea5c4 !important;
-  background: rgba(14, 165, 196, 0.14) !important;
-  border-radius: 3px !important;
-  transition: all 60ms ease-out !important;
+  border: 2px solid #22d3ee !important;
+  border-radius: 2px !important;
+  background: rgba(34, 211, 238, 0.16) !important;
+  box-shadow:
+    0 0 0 100vmax rgba(8, 15, 30, 0.45),
+    0 0 0 1px rgba(255, 255, 255, 0.85) inset !important;
+  transition:
+    left 70ms ease-out,
+    top 70ms ease-out,
+    width 70ms ease-out,
+    height 70ms ease-out !important;
+  box-sizing: border-box !important;
+}
+
+/* Corner ticks, so the exact bounds stay readable over any background. */
+.arf-picker-corner {
+  position: fixed !important;
+  z-index: 2147483646 !important;
+  pointer-events: none !important;
+  width: 9px !important;
+  height: 9px !important;
+  border: 2px solid #22d3ee !important;
+  background: #0f172a !important;
   box-sizing: border-box !important;
 }
 
@@ -31,25 +61,53 @@
   position: fixed !important;
   z-index: 2147483647 !important;
   pointer-events: none !important;
-  max-width: min(460px, 90vw) !important;
-  padding: 6px 9px !important;
-  border-radius: 6px !important;
+  max-width: min(520px, 92vw) !important;
+  padding: 7px 10px !important;
+  border-radius: 7px !important;
   background: #0f172a !important;
   color: #f8fafc !important;
-  font: 500 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35) !important;
+  font:
+    500 12px/1.5 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Consolas,
+    monospace !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
   white-space: nowrap !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
 }
 
-.arf-picker-label b {
+.arf-picker-label .arf-sel {
   color: #7dd3fc !important;
   font-weight: 600 !important;
 }
 
-.arf-picker-label .arf-weak {
+.arf-picker-label .arf-dim {
+  color: #94a3b8 !important;
+}
+
+.arf-picker-label .arf-good {
+  color: #4ade80 !important;
+}
+
+.arf-picker-label .arf-warn {
   color: #fbbf24 !important;
+}
+
+.arf-picker-label .arf-preview {
+  display: block !important;
+  margin-top: 3px !important;
+  max-width: 100% !important;
+  color: #cbd5e1 !important;
+  font:
+    400 11px/1.45 system-ui,
+    -apple-system,
+    Segoe UI,
+    sans-serif !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
 }
 
 .arf-picker-hint {
@@ -59,20 +117,38 @@
   transform: translateX(-50%) !important;
   z-index: 2147483647 !important;
   pointer-events: none !important;
-  padding: 9px 16px !important;
+  padding: 10px 18px !important;
   border-radius: 999px !important;
   background: #0f172a !important;
   color: #f8fafc !important;
-  font: 500 13px/1 system-ui, -apple-system, Segoe UI, sans-serif !important;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35) !important;
+  font:
+    500 13px/1 system-ui,
+    -apple-system,
+    Segoe UI,
+    sans-serif !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
+  white-space: nowrap !important;
 }
 
 .arf-picker-hint kbd {
   display: inline-block !important;
-  padding: 2px 6px !important;
+  padding: 3px 6px !important;
   margin: 0 2px !important;
   border-radius: 4px !important;
   background: #334155 !important;
+  color: #f8fafc !important;
   font: inherit !important;
   font-size: 11px !important;
+  line-height: 1 !important;
+}
+
+.arf-picker-hint .arf-sep {
+  color: #64748b !important;
+  margin: 0 8px !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arf-picker-highlight {
+    transition: none !important;
+  }
 }
