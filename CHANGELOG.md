@@ -4,6 +4,60 @@ All notable changes to this project are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.1] — unreleased
+
+Reliability fixes found in testing of the 2.0.0 rewrite. Several of these made
+the extension report itself as running while never actually reloading.
+
+### Fixed
+
+- **Jobs could report "Running" and never reload at all.** The unsaved-form
+  check compared every field's value against its `defaultValue`, so any site
+  whose JavaScript prefills a search box, sets a `<select>` after load, or
+  renders a `contenteditable` looked permanently dirty. The job then deferred
+  on every single fire, forever, while the status said running and the counter
+  sat at zero. Dirty state is now tracked from trusted `input`/`beforeinput`
+  events — actual typing — and clears once the field is empty again.
+- **The reload counter stayed at zero and the badge was blank.** Two causes:
+  the deferral above meant no reload ever completed, and `formatBadgeCount`
+  returns `''` for zero, which cleared the badge entirely — so a freshly
+  started job was visually identical to a stopped one.
+- **Alarm-mode jobs drifted onto a 90-second cadence.** After each reload,
+  `fire()` re-armed using the page-mode watchdog formula (`2× + 30s`)
+  regardless of mode, so a 30-second refresh ran at 90 seconds whenever the
+  post-reload handshake was late or never arrived.
+- **Waking the worker by alarm re-armed the job underneath the handler.** A
+  one-shot alarm disappears from `getAll()` the moment it fires, so rehydration
+  saw "no alarm", re-armed the job, and then had that overwritten moments
+  later. Since waking-by-alarm is the normal path, this cost reloads routinely.
+- **A missed handshake blocked fast jobs for 90 seconds.** The page timer used
+  the full reload-correlation TTL for de-duplication. Those are different
+  questions and now use different windows.
+- **"Pick region" did nothing.** Three separate faults: a re-entrancy flag that
+  stayed set if a previous run ended without reaching cleanup, leaving the
+  button permanently inert; injection failures disappearing into a rejected
+  promise with no user-visible message; and the picked selector being applied
+  before `render()`, which promptly overwrote it from the stored job.
+- **A transient reload failure deleted the job** instead of retrying.
+- Popup actions that threw failed silently. Every handler now reports errors
+  in the UI rather than only to a console nobody has open.
+
+### Changed
+
+- **Scroll memory is now off by default.** It runs in the page, so it needs
+  host access — which meant the very first click of Start raised a permission
+  prompt for a feature the user had not asked for. A plain refresh now starts
+  immediately with no prompt; enabling scroll memory asks in context.
+- **The popup updates live while open.** Reload count, countdown, status pill
+  and the Start/Stop button now poll once a second, so a job that pauses or
+  reloads while you are watching is reflected immediately instead of showing
+  whatever was true when the popup opened.
+- **Deferrals are now visible.** A job holding off because of unsaved form text
+  shows `…` on the badge and says so in the popup, instead of being
+  indistinguishable from a broken one.
+- The element picker is injected from the popup rather than via the service
+  worker, keeping it adjacent to the user gesture that authorises it.
+
 ## [2.0.0] — unreleased
 
 A complete rewrite. v1.0.2 carried an MV3 manifest but MV2-era code, and was

@@ -103,6 +103,11 @@ import { originOf } from './scope.js';
  * @property {boolean} skipIfDirtyForm
  * @property {boolean} pauseWhenDiscarded
  * @property {number} consecutiveStalls
+ * @property {string|null} waitingReason  Set while a fire is being deferred
+ *                                        (e.g. unsaved form text). A job that
+ *                                        keeps deferring is indistinguishable
+ *                                        from a broken one unless we say so.
+ * @property {number|null} waitingUntil
  * @property {Scope} scope
  * @property {Monitor} monitor
  * @property {PendingReload|null} pending
@@ -237,7 +242,13 @@ export function makeJob({ tab, intervalMs, overrides = {} }) {
     nextFireAt: 0,
 
     reloadMethod: RELOAD_METHOD.SOFT,
-    scrollRestore: { enabled: true, selector: null },
+    // Off by default, deliberately. Scroll restore has to run inside the page,
+    // which means a host-permission prompt -- and having that prompt appear
+    // the very first time someone clicks Start, for a feature they did not ask
+    // for, turns "press Start" into "press Start, read a permission dialog,
+    // decide". A plain refresh should just work. Users who want scroll memory
+    // switch it on and get the prompt then, in context.
+    scrollRestore: { enabled: false, selector: null },
 
     reloadCount: 0,
     maxReloads: 0,
@@ -245,6 +256,8 @@ export function makeJob({ tab, intervalMs, overrides = {} }) {
     skipIfDirtyForm: true,
     pauseWhenDiscarded: false,
     consecutiveStalls: 0,
+    waitingReason: null,
+    waitingUntil: null,
 
     scope: { mode: SCOPE_MODE.ORIGIN, value: origin },
     monitor: defaultMonitor(),
@@ -326,6 +339,8 @@ export function publicView(job) {
     origin: job.origin,
     status: job.status,
     pauseReason: job.pauseReason,
+    waitingReason: job.waitingReason,
+    waitingUntil: job.waitingUntil,
     intervalMs: job.intervalMs,
     randomize: job.randomize,
     mode: job.mode,

@@ -9,7 +9,7 @@
  */
 
 import { COLOR, PAUSE_REASON, STATUS } from '../lib/constants.js';
-import { formatBadgeCount, formatInterval } from '../lib/format.js';
+import { badgeText, formatInterval } from '../lib/format.js';
 
 /** @typedef {import('../lib/schema.js').Job} Job */
 
@@ -55,18 +55,13 @@ export async function update(tabId, job) {
 
   await quiet(() => chrome.action.setIcon({ tabId, path: running ? ACTIVE_ICONS : IDLE_ICONS }));
 
-  let text;
-  let color;
-  if (alerted) {
-    text = '!';
-    color = COLOR.ALERT;
-  } else if (running) {
-    text = formatBadgeCount(job.reloadCount);
-    color = COLOR.ACTIVE;
-  } else {
-    text = '❚❚';
-    color = COLOR.IDLE;
-  }
+  const text = badgeText({
+    running,
+    alerted,
+    waiting: Boolean(job.waitingReason),
+    reloadCount: job.reloadCount,
+  });
+  const color = alerted ? COLOR.ALERT : running ? COLOR.ACTIVE : COLOR.IDLE;
 
   await quiet(() => chrome.action.setBadgeText({ tabId, text }));
   await quiet(() => chrome.action.setBadgeBackgroundColor({ tabId, color }));
@@ -93,6 +88,7 @@ function tooltip(job) {
     : formatInterval(job.intervalMs);
 
   if (job.status === STATUS.RUNNING) {
+    if (job.waitingReason) return `Auto Refresh — ${pauseLabel(job.waitingReason)}`;
     const parts = [`Auto Refresh — every ${every}`, `${job.reloadCount} reloads`];
     if (job.reloadMethod === 'hard') parts.push('hard reload');
     if (job.monitor.enabled) parts.push('watching for changes');

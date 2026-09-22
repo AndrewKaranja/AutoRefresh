@@ -50,6 +50,26 @@ export function formatBadgeCount(n) {
 }
 
 /**
+ * Toolbar badge text for a job.
+ *
+ * The rule that matters: a RUNNING job always produces a non-empty badge.
+ * formatBadgeCount returns '' for zero, and feeding that straight to
+ * setBadgeText cleared the badge entirely -- so a job that had just started,
+ * or one being held up by an unsaved form, showed nothing at all and was
+ * indistinguishable from "not running". That is the single most confusing
+ * thing this extension can do, so it is pulled out here and tested.
+ *
+ * @param {{running: boolean, alerted?: boolean, waiting?: boolean, reloadCount?: number}} state
+ * @returns {string}
+ */
+export function badgeText({ running, alerted = false, waiting = false, reloadCount = 0 }) {
+  if (alerted) return '!';
+  if (!running) return '❚❚';
+  if (waiting) return '…';
+  return formatBadgeCount(reloadCount) || '0';
+}
+
+/**
  * @param {string} url
  * @param {number} [max]
  * @returns {string}

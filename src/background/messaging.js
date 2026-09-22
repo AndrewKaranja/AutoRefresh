@@ -232,14 +232,11 @@ async function handle(message, sender) {
       return { jobs: jobs.map(publicView), stats: await getStats() };
     }
 
-    case MSG.PICK_ELEMENT: {
-      const tabId = message.tabId ?? (await activeTabId());
-      if (typeof tabId !== 'number') throw new Error('no tab');
-      await setDraft({ ...((await getDraft()) || {}), tabId, ...(message.draft || {}) });
-      await chrome.scripting.insertCSS({ target: { tabId }, files: ['content/picker.css'] });
-      await chrome.scripting.executeScript({ target: { tabId }, files: ['content/picker.js'] });
-      return;
-    }
+    // NOTE: there is deliberately no PICK_ELEMENT case. The popup injects the
+    // picker itself, because the activeTab grant that makes the injection
+    // legal without host permissions comes from the user's click on the
+    // action -- and routing it through here added a message hop that only
+    // served to swallow the failure.
 
     case MSG.GET_DRAFT:
       return { draft: await getDraft() };

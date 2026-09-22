@@ -105,36 +105,56 @@
   // Dirty-form detection
   // -------------------------------------------------------------------------
 
+  // Track real typing rather than inferring it.
+  //
+  // The obvious implementation -- compare every field's value against its
+  // defaultValue -- is hopelessly over-eager. Any site whose JavaScript
+  // prefills a search box, sets a <select> after load, or renders a
+  // contenteditable looks permanently dirty. The job then postpones on every
+  // single fire and NEVER reloads, while still reporting itself as running.
+  // That is far worse than occasionally interrupting a draft: it is a
+  // refresher that silently does nothing.
+  //
+  // A trusted input event is the browser telling us a human typed. Scripted
+  // value assignment does not produce one, so this cannot false-positive on
+  // page setup.
+  var userTyped = false;
+
+  function markTyped(event) {
+    if (!event || !event.isTrusted) return;
+    var el = event.target;
+    if (!el) return;
+    if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable) {
+      userTyped = true;
+    }
+  }
+
+  document.addEventListener('input', markTyped, true);
+  document.addEventListener('beforeinput', markTyped, true);
+
   function isDirty() {
+    if (!userTyped) return false;
+
+    // They typed at some point -- but if the field has since been cleared or
+    // submitted there is nothing left to protect, so the job should resume.
     try {
-      var fields = document.querySelectorAll('input, textarea, select, [contenteditable="true"]');
+      var fields = document.querySelectorAll('input, textarea, [contenteditable="true"]');
       for (var i = 0; i < fields.length; i++) {
         var el = fields[i];
-        var tag = el.tagName;
+        var type = (el.type || '').toLowerCase();
+        if (type === 'hidden' || type === 'submit' || type === 'button' || type === 'reset') continue;
 
-        if (tag === 'INPUT') {
-          var type = (el.type || 'text').toLowerCase();
-          if (type === 'hidden' || type === 'submit' || type === 'button' || type === 'reset') continue;
-          if (type === 'checkbox' || type === 'radio') {
-            if (el.checked !== el.defaultChecked) return true;
-          } else if (el.value !== el.defaultValue) {
-            return true;
-          }
-        } else if (tag === 'TEXTAREA') {
-          if (el.value !== el.defaultValue) return true;
-        } else if (tag === 'SELECT') {
-          for (var j = 0; j < el.options.length; j++) {
-            if (el.options[j].selected !== el.options[j].defaultSelected) return true;
-          }
-        } else if (el.isContentEditable && (el.textContent || '').trim().length > 0) {
-          // No defaultValue to compare against on a contenteditable, so any
-          // content counts. False positives here only cost a 15s delay.
+        if (el.isContentEditable) {
+          if ((el.textContent || '').trim().length > 0) return true;
+        } else if ((el.value || '').length > 0) {
           return true;
         }
       }
     } catch (e) {
-      /* fall through to "not dirty" */
+      return false;
     }
+
+    userTyped = false; // nothing left in any field; stop holding the job up
     return false;
   }
 

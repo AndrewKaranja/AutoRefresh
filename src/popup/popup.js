@@ -47,6 +47,8 @@ async function init() {
     pausedNotice: $('pausedNotice'),
     pausedText: $('pausedText'),
     resumeHere: $('resumeHere'),
+    waitingNotice: $('waitingNotice'),
+    errorNotice: $('errorNotice'),
     main: $('main'),
     chips: $('chips'),
     custom: /** @type {HTMLInputElement} */ ($('customInterval')),
@@ -91,19 +93,45 @@ async function init() {
   let pendingStart = false;
 
   // The element picker destroys this popup when it injects. Whatever was
-  // half-configured comes back through the draft.
-  if (state.draft?.monitor) {
-    els.monitorEnabled.checked = true;
-    if (state.draft.monitor.selector) {
-      els.monitorRegion.textContent = state.draft.monitor.selector;
-      els.monitorRegion.title = state.draft.monitor.selector;
-    }
-    await send({ type: MSG.SET_DRAFT, draft: null });
-  }
-
   buildChips(state.settings?.presets || []);
   els.advanced.open = Boolean(state.settings?.advancedOpen);
   render();
+
+  // Applied AFTER render(), not before: render() writes every control from the
+  // stored job, so a draft applied first was silently overwritten and the
+  // region you had just picked vanished.
+  await applyPickedRegion();
+
+  /**
+   * Picks up the region chosen by the element picker.
+   *
+   * Injecting the picker destroys this popup, so the result cannot be returned
+   * to the caller. The picker messages the service worker, which parks it in a
+   * draft; this is where that draft comes home.
+   */
+  async function applyPickedRegion() {
+    const selector = state.draft?.monitor?.selector;
+    if (!selector) return;
+
+    els.monitorEnabled.checked = true;
+    els.monitorBody.hidden = false;
+    els.monitorRegion.textContent = selector;
+    els.monitorRegion.title = selector;
+    els.advanced.open = true;
+
+    await send({ type: MSG.SET_DRAFT, draft: null });
+    state.draft = null;
+
+    // If a job is already running, apply it now. Otherwise the user picks a
+    // region, sees it listed, and nothing watches it until they think to press
+    // Start again.
+    if (state.job?.status === 'running') {
+      await send({ type: MSG.UPDATE_JOB, tabId: state.tab?.id, job: collect() });
+      await refreshState();
+      els.monitorRegion.textContent = selector;
+      els.monitorRegion.title = selector;
+    }
+  }
 
   // --- rendering ----------------------------------------------------------
 
@@ -146,36 +174,12 @@ async function init() {
     els.restricted.hidden = true;
     els.main.hidden = false;
 
-    const running = job?.status === 'running';
-    const paused = job?.status === 'paused';
-
-    els.statusPill.dataset.state = running ? 'running' : paused ? 'paused' : 'off';
-    els.statusPill.textContent = running
-      ? t('statusRunning')
-      : paused
-        ? t('statusPaused')
-        : t('statusOff');
-
-    els.primary.textContent = running ? t('popupStop') : t('popupStart');
-    els.primary.className = running ? 'btn btn-danger' : 'btn btn-primary';
-
-    // "Paused — you navigated away" is worth a dedicated affordance: it is the
-    // one pause the user can undo in a single click, and every competitor
-    // either deletes the job here or keeps hammering the new page.
-    const away = paused && job.pauseReason === PAUSE_REASON.NAVIGATED_AWAY;
-    els.pausedNotice.hidden = !paused;
-    if (paused) {
-      els.pausedText.textContent = pauseMessage(job.pauseReason);
-      els.resumeHere.hidden = !away && job.pauseReason !== PAUSE_REASON.USER;
-    }
-
-    els.live.hidden = !job;
-    if (job) {
-      els.reloadCount.textContent = String(job.reloadCount);
-      startCountdown(job);
-    } else {
-      stopCountdown();
-    }
+    // Status pill, primary button and the paused notice are all painted by
+    // renderLive(), so the 1s poll and a full render can never disagree.
+    // ("Paused — you navigated away" gets a one-click resume there: it is the
+    // one pause the user can undo instantly, and it is where competitors
+    // either drop the job or start hammering the page you moved to.)
+    renderLive();
 
     if (job) {
       selectedMs = job.intervalMs;
@@ -211,6 +215,100 @@ async function init() {
 
   function renderWarnings() {
     els.fastWarning.hidden = selectedMs >= WARN_INTERVAL_MS;
+  }
+
+  /**
+   * The parts that change on their own while the popup sits open: reload
+   * count, countdown, status pill, and any "held up" explanation.
+   *
+   * Kept separate from render() on purpose -- a full re-render would write
+   * every form control from the stored job, yanking values out from under
+   * someone mid-edit. This touches only read-only text.
+   */
+  function renderLive() {
+    const job = state.job;
+
+    els.live.hidden = !job;
+    if (!job) {
+      stopCountdown();
+      els.waitingNotice.hidden = true;
+      els.pausedNotice.hidden = true;
+      els.statusPill.dataset.state = 'off';
+      els.statusPill.textContent = t('statusOff');
+      els.primary.textContent = t('popupStart');
+      els.primary.className = 'btn btn-primary';
+      return;
+    }
+
+    els.reloadCount.textContent = String(job.reloadCount);
+
+    const running = job.status === 'running';
+    const paused = job.status === 'paused';
+
+    els.statusPill.dataset.state = running ? 'running' : paused ? 'paused' : 'off';
+    els.statusPill.textContent = running
+      ? t('statusRunning')
+      : paused
+        ? t('statusPaused')
+        : t('statusOff');
+
+    // A job can pause itself while the popup sits open -- it hits a reload
+    // limit, or the user navigates the tab away. The button has to follow, or
+    // it offers to Stop something that already stopped.
+    els.primary.textContent = running ? t('popupStop') : t('popupStart');
+    els.primary.className = running ? 'btn btn-danger' : 'btn btn-primary';
+
+    els.pausedNotice.hidden = !paused;
+    if (paused) {
+      els.pausedText.textContent = pauseMessage(job.pauseReason);
+      const away = job.pauseReason === PAUSE_REASON.NAVIGATED_AWAY;
+      els.resumeHere.hidden = !away && job.pauseReason !== PAUSE_REASON.USER;
+    }
+
+    // A job that keeps deferring looks exactly like a broken one -- status
+    // says running, counter never moves. Say what is actually happening.
+    if (running && job.waitingReason) {
+      els.waitingNotice.hidden = false;
+      els.waitingNotice.textContent = pauseMessage(job.waitingReason);
+    } else {
+      els.waitingNotice.hidden = true;
+    }
+
+    startCountdown(job);
+  }
+
+  /**
+   * @param {unknown} err
+   */
+  function showError(err) {
+    els.errorNotice.hidden = false;
+    els.errorNotice.className = 'notice error section';
+    els.errorNotice.textContent = String(
+      /** @type {any} */ (err)?.message || err || 'Something went wrong.',
+    );
+    console.error('[AutoRefresh]', err);
+  }
+
+  function clearError() {
+    els.errorNotice.hidden = true;
+    // The same element doubles as an informational notice, so reset the tone.
+    els.errorNotice.className = 'notice error section';
+  }
+
+  /**
+   * Wraps a click handler so a rejected promise becomes a visible message
+   * rather than an unhandled rejection in a console nobody has open. An action
+   * that silently does nothing is the single most confusing failure mode a
+   * popup can have.
+   *
+   * @param {() => Promise<void>} fn
+   * @returns {() => void}
+   */
+  function guarded(fn) {
+    return () => {
+      clearError();
+      fn().catch(showError);
+    };
   }
 
   function pauseMessage(/** @type {string} */ reason) {
@@ -325,115 +423,197 @@ async function init() {
     render();
   }
 
-  els.primary.addEventListener('click', async () => {
-    if (state.job?.status === 'running') {
-      await send({ type: MSG.STOP_JOB, tabId: state.tab?.id });
-      await refreshState();
-      return;
-    }
+  /** Pulls only the volatile fields, for the 1s poll. */
+  async function refreshLive() {
+    const next = await send({ type: MSG.GET_STATE });
+    state.job = next.job;
+    state.activeCount = next.activeCount;
+    renderLive();
+    els.activeCount.innerHTML = `<span class="dot"></span>${next.activeCount || 0} active`;
+  }
 
-    const cfg = collect();
+  // Poll while the popup is open so the reload counter and countdown reflect
+  // reality. Without this the popup shows whatever was true when it opened,
+  // the countdown runs to 0:00 and sits there, and a job that is working
+  // looks stuck.
+  const livePoll = window.setInterval(() => {
+    refreshLive().catch(() => {
+      /* transient; the next tick will catch up */
+    });
+  }, 1000);
+  window.addEventListener('pagehide', () => clearInterval(livePoll));
 
-    // The gesture is alive right now, which is the only moment
-    // chrome.permissions.request() will work. Ask before starting, not after.
-    if (needsAccess(cfg) && !state.hasAccess && state.tab?.url) {
-      pendingStart = true;
-      els.permPrompt.hidden = false;
-      return;
-    }
+  els.primary.addEventListener(
+    'click',
+    guarded(async () => {
+      if (state.job?.status === 'running') {
+        await send({ type: MSG.STOP_JOB, tabId: state.tab?.id });
+        await refreshState();
+        return;
+      }
 
-    await startJob(cfg);
-  });
+      const cfg = collect();
+
+      // The gesture is alive right now, which is the only moment
+      // chrome.permissions.request() will work. Ask before starting, not after.
+      if (needsAccess(cfg) && !state.hasAccess && state.tab?.url) {
+        pendingStart = true;
+        els.permPrompt.hidden = false;
+        // Make it unmissable. Previously the prompt could appear below the
+        // fold with the Start button unchanged, so pressing Start looked like
+        // it had simply done nothing.
+        els.permPrompt.scrollIntoView({ block: 'nearest' });
+        /** @type {HTMLButtonElement} */ (els.permGrant).focus();
+        els.primary.disabled = true;
+        return;
+      }
+
+      await startJob(cfg);
+    }),
+  );
 
   async function startJob(/** @type {any} */ cfg) {
     await send({ type: MSG.START_JOB, tabId: state.tab?.id, job: cfg });
     await refreshState();
   }
 
-  els.permGrant.addEventListener('click', async () => {
-    const pattern = originPattern(state.tab?.url || '');
-    if (!pattern) return;
-
-    let granted = false;
-    try {
-      granted = await chrome.permissions.request({ origins: [pattern] });
-    } catch (err) {
-      console.warn('[AutoRefresh] permission request failed', err);
-    }
-
-    els.permPrompt.hidden = true;
-    if (granted) await send({ type: MSG.REQUEST_ORIGIN_ACCESS, url: state.tab.url });
-
-    if (pendingStart) {
-      pendingStart = false;
-      const cfg = collect();
-      if (!granted) {
-        // Denied: fall back to what basic mode can actually deliver, and say
-        // so, rather than starting a job that silently does less than asked.
-        cfg.intervalMs = Math.max(30_000, cfg.intervalMs);
-        cfg.randomize.minMs = Math.max(30_000, cfg.randomize.minMs);
-        cfg.randomize.maxMs = Math.max(30_000, cfg.randomize.maxMs);
-        cfg.scrollRestore.enabled = false;
-        cfg.monitor.enabled = false;
-      }
-      await startJob(cfg);
-    } else {
-      await refreshState();
-    }
-  });
-
-  els.permSkip.addEventListener('click', async () => {
-    els.permPrompt.hidden = true;
-    if (!pendingStart) return;
-    pendingStart = false;
-
-    const cfg = collect();
+  /** Trims a config down to what basic mode can honestly deliver. */
+  function downgrade(/** @type {any} */ cfg) {
     cfg.intervalMs = Math.max(30_000, cfg.intervalMs);
     cfg.randomize.minMs = Math.max(30_000, cfg.randomize.minMs);
     cfg.randomize.maxMs = Math.max(30_000, cfg.randomize.maxMs);
     cfg.scrollRestore.enabled = false;
     cfg.monitor.enabled = false;
-    await startJob(cfg);
-  });
+    return cfg;
+  }
 
-  els.reloadNow.addEventListener('click', async () => {
-    await send({ type: MSG.RELOAD_ONCE, tabId: state.tab?.id });
-    window.close();
-  });
+  els.permGrant.addEventListener(
+    'click',
+    guarded(async () => {
+      const pattern = originPattern(state.tab?.url || '');
+      els.primary.disabled = false;
+      if (!pattern) {
+        els.permPrompt.hidden = true;
+        return;
+      }
 
-  els.resumeHere.addEventListener('click', async () => {
-    await send({ type: MSG.RESUME_JOB, tabId: state.tab?.id });
-    await refreshState();
-  });
+      let granted = false;
+      try {
+        granted = await chrome.permissions.request({ origins: [pattern] });
+      } catch (err) {
+        console.warn('[AutoRefresh] permission request failed', err);
+      }
 
-  els.pickRegion.addEventListener('click', async () => {
-    // This closes the popup. The picker sends its result to the worker, which
-    // parks it in a draft we pick up on reopen.
-    await send({ type: MSG.PICK_ELEMENT, tabId: state.tab?.id, draft: { monitor: collect().monitor } });
-    window.close();
-  });
+      els.permPrompt.hidden = true;
+      if (granted) await send({ type: MSG.REQUEST_ORIGIN_ACCESS, url: state.tab.url });
 
-  els.alwaysRefresh.addEventListener('click', async (e) => {
-    e.preventDefault();
-    if (!state.tab?.url) return;
-    const u = new URL(state.tab.url);
-    const cfg = collect();
-    await send({
-      type: MSG.SAVE_RULE,
-      rule: {
-        id: `r_${crypto.randomUUID()}`,
-        enabled: true,
-        pattern: `${u.protocol}//${u.hostname}/*`,
-        matchKind: 'matchPattern',
-        priority: 0,
-        autoStart: true,
-        onlyOncePerTab: true,
-        settings: cfg,
-        createdAt: Date.now(),
-      },
-    });
-    els.alwaysRefresh.textContent = '✓ Rule saved';
-  });
+      if (!pendingStart) {
+        // Granted mid-run: push whatever setting the user had just switched
+        // on, which was held back pending this answer.
+        if (granted && state.job?.status === 'running') {
+          await send({ type: MSG.UPDATE_JOB, tabId: state.tab?.id, job: collect() });
+        }
+        await refreshState();
+        return;
+      }
+      pendingStart = false;
+
+      // Denied: start anyway with what basic mode can deliver, and say so,
+      // rather than leaving the click with nothing to show for it.
+      const cfg = collect();
+      await startJob(granted ? cfg : downgrade(cfg));
+      if (!granted) {
+        els.errorNotice.hidden = false;
+        els.errorNotice.className = 'notice info section';
+        els.errorNotice.textContent = t('permDeniedNote');
+      }
+    }),
+  );
+
+  els.permSkip.addEventListener(
+    'click',
+    guarded(async () => {
+      els.permPrompt.hidden = true;
+      els.primary.disabled = false;
+      if (!pendingStart) {
+        // Declined a mid-run upgrade: re-render so the control they toggled
+        // snaps back to what the job is actually doing.
+        await refreshState();
+        return;
+      }
+      pendingStart = false;
+      await startJob(downgrade(collect()));
+    }),
+  );
+
+  els.reloadNow.addEventListener(
+    'click',
+    guarded(async () => {
+      await send({ type: MSG.RELOAD_ONCE, tabId: state.tab?.id });
+      window.close();
+    }),
+  );
+
+  els.resumeHere.addEventListener(
+    'click',
+    guarded(async () => {
+      await send({ type: MSG.RESUME_JOB, tabId: state.tab?.id });
+      await refreshState();
+    }),
+  );
+
+  els.pickRegion.addEventListener(
+    'click',
+    guarded(async () => {
+      const tabId = state.tab?.id;
+      if (typeof tabId !== 'number') throw new Error('No page to pick from.');
+
+      // Park the half-configured job first: injecting the picker destroys this
+      // popup, so there is nothing left to return a value to. The picker sends
+      // its result to the worker, which holds it in the draft we read on open.
+      await send({ type: MSG.SET_DRAFT, draft: { tabId, monitor: collect().monitor } });
+
+      // Injected from HERE rather than from the service worker, because the
+      // activeTab grant that makes this legal without host permissions comes
+      // from the user's click on the action -- and this handler is the closest
+      // point to that gesture. Doing it via a message round-trip added a hop
+      // for no benefit, and any failure vanished into a rejected promise.
+      try {
+        await chrome.scripting.insertCSS({ target: { tabId }, files: ['content/picker.css'] });
+        await chrome.scripting.executeScript({ target: { tabId }, files: ['content/picker.js'] });
+      } catch (err) {
+        await send({ type: MSG.SET_DRAFT, draft: null });
+        throw new Error(
+          `Can't open the picker on this page. ${String(/** @type {any} */ (err)?.message || err)}`,
+        );
+      }
+
+      window.close();
+    }),
+  );
+
+  els.alwaysRefresh.addEventListener(
+    'click',
+    guarded(async () => {
+      if (!state.tab?.url) return;
+      const u = new URL(state.tab.url);
+      await send({
+        type: MSG.SAVE_RULE,
+        rule: {
+          id: `r_${crypto.randomUUID()}`,
+          enabled: true,
+          pattern: `${u.protocol}//${u.hostname}/*`,
+          matchKind: 'matchPattern',
+          priority: 0,
+          autoStart: true,
+          onlyOncePerTab: true,
+          settings: collect(),
+          createdAt: Date.now(),
+        },
+      });
+      els.alwaysRefresh.textContent = '✓ Rule saved';
+    }),
+  );
 
   els.activeCount.addEventListener('click', (e) => {
     e.preventDefault();
@@ -477,10 +657,26 @@ async function init() {
     els.onStop,
     els.onFocus,
   ]) {
-    el.addEventListener('change', async () => {
-      if (state.job?.status !== 'running') return;
-      await send({ type: MSG.UPDATE_JOB, tabId: state.tab?.id, job: collect() });
-      await refreshState();
-    });
+    el.addEventListener(
+      'change',
+      guarded(async () => {
+        if (state.job?.status !== 'running') return;
+
+        // Turning on a page feature mid-run needs the same access Start would
+        // have asked for. Without this the setting appears to apply and then
+        // quietly does nothing.
+        const cfg = collect();
+        if (needsAccess(cfg) && !state.hasAccess && state.tab?.url) {
+          pendingStart = false;
+          els.permPrompt.hidden = false;
+          els.permPrompt.scrollIntoView({ block: 'nearest' });
+          /** @type {HTMLButtonElement} */ (els.permGrant).focus();
+          return;
+        }
+
+        await send({ type: MSG.UPDATE_JOB, tabId: state.tab?.id, job: cfg });
+        await refreshState();
+      }),
+    );
   }
 }

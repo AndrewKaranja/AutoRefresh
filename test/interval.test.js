@@ -113,3 +113,27 @@ test('maxReloads of N stops at exactly N', () => {
   }
   assert.equal(fired, 3);
 });
+
+test('an alarm-mode job re-arms at its own interval, not the page watchdog', () => {
+  // Regression: fire() re-armed every job with the page-mode watchdog formula
+  // (2x + 30s) regardless of mode. A 30s refresh therefore ran at 90s whenever
+  // the post-reload handshake was late or never arrived — which reads to a
+  // user as "it sometimes just doesn't refresh".
+  const eff = 30_000;
+  assert.equal(alarmDelayMs('alarm', eff), eff);
+  assert.notEqual(alarmDelayMs('page', eff), eff);
+
+  for (const ms of [30_000, 60_000, 300_000]) {
+    assert.equal(alarmDelayMs('alarm', ms), ms, 'alarm mode must keep its cadence');
+  }
+});
+
+test('the page watchdog always sits behind the page timer', () => {
+  // If the watchdog could fire first it would double-reload every cycle.
+  for (const eff of [1_000, 5_000, 15_000, 29_999]) {
+    assert.ok(
+      alarmDelayMs('page', eff) > eff,
+      `watchdog for ${eff}ms would beat the page timer`,
+    );
+  }
+});

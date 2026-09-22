@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  badgeText,
   formatBadgeCount,
   formatCountdown,
   formatInterval,
@@ -56,4 +57,27 @@ test('formatTimeAgo', () => {
   assert.equal(formatTimeAgo(now - 300_000), '5m ago');
   assert.equal(formatTimeAgo(now - 7_200_000), '2h ago');
   assert.equal(formatTimeAgo(now - 3 * 86_400_000), '3d ago');
+});
+
+test('a running job ALWAYS has a visible badge', () => {
+  // Regression: formatBadgeCount returns '' for zero, and passing that to
+  // setBadgeText cleared the badge — so a freshly started job looked exactly
+  // like a stopped one. "Is it running?" must never be unanswerable.
+  assert.equal(badgeText({ running: true, reloadCount: 0 }), '0');
+  assert.equal(badgeText({ running: true, reloadCount: 1 }), '1');
+  assert.equal(badgeText({ running: true, reloadCount: 4200 }), '4k');
+
+  for (const reloadCount of [0, 1, 999, 1000, 250_000]) {
+    const text = badgeText({ running: true, reloadCount });
+    assert.notEqual(text, '', `running with ${reloadCount} reloads showed no badge`);
+    assert.ok(text.length <= 4);
+  }
+});
+
+test('badge distinguishes waiting, alerted and stopped from plain running', () => {
+  assert.equal(badgeText({ running: true, waiting: true, reloadCount: 7 }), '…');
+  assert.equal(badgeText({ running: true, alerted: true, reloadCount: 7 }), '!');
+  assert.equal(badgeText({ running: false, reloadCount: 7 }), '❚❚');
+  // Alert wins over waiting: a detected change is the more urgent fact.
+  assert.equal(badgeText({ running: true, alerted: true, waiting: true }), '!');
 });

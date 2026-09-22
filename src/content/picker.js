@@ -16,8 +16,20 @@
 (function () {
   'use strict';
 
-  if (window.__autoRefreshPicker) return;
-  window.__autoRefreshPicker = true;
+  // Re-entrancy: tear down any previous picker rather than bailing out.
+  //
+  // A plain `if (active) return;` guard strands the feature the moment a
+  // previous run ends without reaching cleanup() -- a soft navigation, an
+  // extension reload, the user dismissing the popup mid-pick. The flag stays
+  // true, every later click injects a script that immediately returns, and the
+  // button looks broken with nothing in the console to explain it.
+  if (typeof window.__autoRefreshPickerCleanup === 'function') {
+    try {
+      window.__autoRefreshPickerCleanup();
+    } catch (e) {
+      /* previous instance was already half gone */
+    }
+  }
 
   var MSG_PICKER_RESULT = 'PICKER_RESULT'; // mirror:MSG.PICKER_RESULT
   var MSG_PICKER_CANCELLED = 'PICKER_CANCELLED'; // mirror:MSG.PICKER_CANCELLED
@@ -258,7 +270,7 @@
   }
 
   function cleanup() {
-    window.__autoRefreshPicker = false;
+    window.__autoRefreshPickerCleanup = null;
     overlay.removeEventListener('mousemove', onMove, true);
     overlay.removeEventListener('click', onClick, true);
     window.removeEventListener('keydown', onKey, true);
@@ -267,7 +279,12 @@
     });
   }
 
+  window.__autoRefreshPickerCleanup = cleanup;
+
   overlay.addEventListener('mousemove', onMove, true);
   overlay.addEventListener('click', onClick, true);
   window.addEventListener('keydown', onKey, true);
+
+  // Leaving the page mid-pick must not strand the overlay or the flag.
+  window.addEventListener('pagehide', cleanup, { once: true });
 })();

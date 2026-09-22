@@ -36,6 +36,10 @@
       <button id="resumeHere" class="btn-tiny" style="margin-left: 6px">Resume here</button>
     </div>
 
+    <div id="waitingNotice" class="notice warn section" hidden></div>
+
+    <div id="errorNotice" class="notice error section" hidden></div>
+
     <main id="main">
       <section class="section">
         <span class="label" data-i18n="popupIntervalLabel">Refresh every</span>
@@ -123,7 +127,9 @@
 
         <div class="field">
           <label class="switch">
-            <input type="checkbox" id="scrollRestore" checked />
+            <!-- Unchecked by default: it needs site access, and prompting for
+                 that on the very first Start makes a plain refresh feel gated. -->
+            <input type="checkbox" id="scrollRestore" />
             <span data-i18n="advScrollRestore">Keep scroll position</span>
           </label>
         </div>

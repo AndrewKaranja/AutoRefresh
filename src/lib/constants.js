@@ -45,6 +45,18 @@ export const MAX_INTERVAL_MS = 24 * 60 * 60 * 1_000;
 export const PENDING_TTL_MS = 90_000;
 
 /**
+ * How long a reload counts as "already in flight" for de-duplication.
+ *
+ * Deliberately much shorter than PENDING_TTL_MS, because the two answer
+ * different questions. PENDING_TTL_MS asks "was this navigation ours?", where
+ * being generous is right -- a slow page on a slow link is still our reload.
+ * This one asks "am I already firing?", and being generous there is actively
+ * harmful: if a handshake is ever missed, a 5-second job would sit blocked for
+ * a minute and a half before it was allowed to try again.
+ */
+export const FIRE_DEDUPE_MS = 5_000;
+
+/**
  * In PAGE mode the alarm is a watchdog. If it fires but the page timer is
  * still on schedule (within this grace window), just re-arm instead of
  * double-firing a reload.
@@ -116,7 +128,6 @@ export const MSG = {
   UPDATE_JOB: 'UPDATE_JOB',
   RELOAD_ONCE: 'RELOAD_ONCE',
   LIST_JOBS: 'LIST_JOBS',
-  PICK_ELEMENT: 'PICK_ELEMENT',
   GET_DRAFT: 'GET_DRAFT',
   SET_DRAFT: 'SET_DRAFT',
   GET_SETTINGS: 'GET_SETTINGS',

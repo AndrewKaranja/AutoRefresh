@@ -45,6 +45,7 @@ import {
   MAX_CONSECUTIVE_STALLS,
   MSG,
   PAUSE_REASON,
+  FIRE_DEDUPE_MS,
   PENDING_TTL_MS,
   RELOAD_METHOD,
   STATS_FLUSH_MS,
@@ -74,9 +75,13 @@ import { deleteJob, getJob, listJobs, saveJob, withJobLock } from './jobs.js';
  */
 let rehydrating = null;
 
-/** @returns {Promise<void>} */
-export function ensureRehydrated() {
-  if (!rehydrating) rehydrating = doRehydrate();
+/**
+ * @param {string} [skipJobId] Job whose alarm is being handled right now, and
+ *   which must therefore not be re-armed underneath the handler. See onAlarm.
+ * @returns {Promise<void>}
+ */
+export function ensureRehydrated(skipJobId) {
+  if (!rehydrating) rehydrating = doRehydrate(skipJobId);
   return rehydrating;
 }
 
@@ -88,9 +93,10 @@ export function ensureRehydrated() {
  * any worker lifetime -- because the worker is just as likely to be woken by
  * an alarm or a message after a crash as it is to get a tidy startup event.
  *
+ * @param {string} [skipJobId]
  * @returns {Promise<void>}
  */
-async function doRehydrate() {
+async function doRehydrate(skipJobId) {
   const [jobs, tabs, alarms] = await Promise.all([
     listJobs(),
     chrome.tabs.query({}),
@@ -112,7 +118,13 @@ async function doRehydrate() {
 
     liveJobIds.add(job.id);
 
-    if (job.status === STATUS.RUNNING) {
+    if (job.status === STATUS.RUNNING && job.id !== skipJobId) {
+      // A one-shot alarm is gone from getAll() the instant it fires. Without
+      // the skip, waking the worker BY that alarm means rehydrate sees "no
+      // alarm" and re-arms the job for a fresh interval -- and then fire()
+      // overwrites it moments later, so the job silently drifts onto the
+      // wrong cadence. Since waking-by-alarm is the common path, this was
+      // costing reloads routinely rather than rarely.
       const has = alarms.some((a) => a.name === alarmName(job.id));
       if (!has) await arm(job);
       else await badge.update(job.tabId, job);
@@ -160,6 +172,8 @@ export async function arm(job) {
   job.effectiveIntervalMs = eff;
   job.status = STATUS.RUNNING;
   job.pauseReason = null;
+  job.waitingReason = null;
+  job.waitingUntil = null;
   job.nextFireAt = Date.now() + (mode === 'alarm' ? alarmDelayMs(mode, eff) : eff);
 
   await saveJob(job);
@@ -186,9 +200,10 @@ export async function arm(job) {
  */
 export async function onAlarm(alarm) {
   if (!alarm.name.startsWith(ALARM_PREFIX)) return;
-  await ensureRehydrated();
 
   const jobId = alarm.name.slice(ALARM_PREFIX.length);
+  await ensureRehydrated(jobId);
+
   const job = (await listJobs()).find((j) => j.id === jobId);
 
   if (!job || job.status !== STATUS.RUNNING) {
@@ -253,10 +268,15 @@ export async function fire(job, reason) {
   if (job.skipIfDirtyForm) {
     const dirty = await askAgent(job.tabId, { type: MSG.IS_DIRTY }, DIRTY_FORM_PROBE_MS);
     if (dirty === true) {
-      await postpone(job, DIRTY_FORM_POSTPONE_MS);
+      await postpone(job, DIRTY_FORM_POSTPONE_MS, PAUSE_REASON.DIRTY_FORM);
       return;
     }
   }
+
+  // Past every reason to defer -- clear the waiting state before reloading, or
+  // the popup would keep claiming the job is held up.
+  job.waitingReason = null;
+  job.waitingUntil = null;
 
   // Invariant C: the marker is written BEFORE the reload, because the
   // handshake that consumes it can arrive before this function's next line
@@ -278,31 +298,57 @@ export async function fire(job, reason) {
         await chrome.tabs.reload(job.tabId);
     }
   } catch {
-    await destroy(job.tabId, job.id);
+    // Only tear the job down if the tab is genuinely gone. A reload can also
+    // throw for transient reasons (a tab mid-navigation, a dragged tab), and
+    // deleting the user's job over a blip would look like it silently stopped.
+    if (await getTab(job.tabId)) {
+      job.pending = null;
+      await postpone(job, 5_000, null);
+    } else {
+      await destroy(job.tabId, job.id);
+    }
     return;
   }
 
-  // Re-arm as a stall watchdog. If the handshake never arrives -- a PDF, a
-  // chrome:// page, a net error, a CSP-blocked injection, a discarded tab --
-  // this is what stops the job hanging silently forever.
+  // Re-arm immediately, at THIS job's own cadence.
+  //
+  // The handshake (onAgentReady) normally re-arms once the page finishes
+  // loading, but it cannot be relied on: a PDF, a chrome:// page, a network
+  // error, a CSP-blocked injection or a discarded tab all mean it never
+  // arrives. This is the floor that keeps the job alive in those cases.
+  //
+  // Using the page-mode watchdog formula here regardless of mode was wrong --
+  // it put every alarm-mode job on a 2x+30s cadence until the handshake
+  // corrected it, so a 30s refresh would visibly run at 90s whenever the
+  // handshake was late or absent.
+  const mode = deriveMode(job);
   await chrome.alarms.clear(alarmName(job.id));
   await chrome.alarms.create(alarmName(job.id), {
-    delayInMinutes: toAlarmMinutes(alarmDelayMs('page', job.effectiveIntervalMs)),
+    delayInMinutes: toAlarmMinutes(alarmDelayMs(mode, job.effectiveIntervalMs)),
   });
 }
 
 /**
  * Pushes the next fire out without counting a cycle.
  *
+ * Records WHY, because a job that keeps postponing looks identical to a broken
+ * one from the outside -- the status says running and the counter never moves.
+ * The popup reads `waitingReason` and says so in words.
+ *
  * @param {Job} job
  * @param {number} ms
+ * @param {string|null} reason null when the delay has no user-facing
+ *   explanation worth showing (a transient reload failure, say).
  * @returns {Promise<void>}
  */
-async function postpone(job, ms) {
+async function postpone(job, ms, reason) {
   job.nextFireAt = Date.now() + ms;
+  job.waitingReason = reason;
+  job.waitingUntil = job.nextFireAt;
   await saveJob(job);
   await chrome.alarms.clear(alarmName(job.id));
   await chrome.alarms.create(alarmName(job.id), { delayInMinutes: toAlarmMinutes(Math.max(30_000, ms)) });
+  await badge.update(job.tabId, job);
 }
 
 // ---------------------------------------------------------------------------
@@ -399,7 +445,9 @@ export async function onPageTimer(tabId) {
   await ensureRehydrated();
   const job = await getJob(tabId);
   if (!job || job.status !== STATUS.RUNNING) return;
-  if (job.pending && Date.now() - job.pending.at < PENDING_TTL_MS) return; // already firing
+  // Short window on purpose -- see FIRE_DEDUPE_MS. Using the full pending TTL
+  // here meant one missed handshake blocked a fast job for 90 seconds.
+  if (job.pending && Date.now() - job.pending.at < FIRE_DEDUPE_MS) return;
   await fire(job, 'page-timer');
 }
 
